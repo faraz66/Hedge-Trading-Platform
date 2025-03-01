@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="strategy-container">
+    <div class="strategy-header">
+        <h2>Select Trading Strategy</h2>
+        <div class="strategy-filters">
+            <input type="text" id="strategySearch" placeholder="Search strategies..." class="search-input">
+            <select id="strategyCategory" class="category-select">
+                <option value="all">All Categories</option>
+                <option value="trend">Trend Following</option>
+                <option value="mean">Mean Reversion</option>
+                <option value="breakout">Breakout</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="strategy-grid" id="strategyGrid">
+        <!-- Strategy cards will be dynamically populated here -->
+    </div>
+
+    <!-- Strategy Configuration Modal -->
+    <div id="strategyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Configure Strategy</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="strategyForm">
+                    <div class="form-group">
+                        <label for="symbol">Trading Pair</label>
+                        <input type="text" id="symbol" required placeholder="e.g., BTCUSDT">
+                    </div>
+                    <div class="form-group date-range">
+                        <div>
+                            <label for="startDate">Start Date</label>
+                            <input type="date" id="startDate" required>
+                        </div>
+                        <div>
+                            <label for="endDate">End Date</label>
+                            <input type="date" id="endDate">
+                        </div>
+                    </div>
+                    <div id="parameterInputs" class="parameter-grid">
+                        <!-- Strategy parameters will be dynamically added here -->
+                    </div>
+                    <div class="form-group optimization">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="optimizeStrategy">
+                            Optimize Strategy Parameters
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Run Backtest</button>
+                        <button type="button" class="btn-secondary" id="resetParams">Reset Parameters</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.strategy-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.strategy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.strategy-filters {
+    display: flex;
+    gap: 1rem;
+}
+
+.search-input, .category-select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.strategy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.strategy-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.strategy-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.strategy-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.strategy-description {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.strategy-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tag {
+    background: #f0f0f0;
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    color: #555;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.parameter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.date-range {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch available strategies
+    fetch('/api/strategies')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayStrategies(data.strategies);
+            }
+        });
+
+    function displayStrategies(strategies) {
+        const grid = document.getElementById('strategyGrid');
+        strategies.forEach(strategy => {
+            const card = createStrategyCard(strategy);
+            grid.appendChild(card);
+        });
+    }
+
+    function createStrategyCard(strategy) {
+        const card = document.createElement('div');
+        card.className = 'strategy-card';
+        card.innerHTML = `
+            <div class="strategy-name">${strategy.name}</div>
+            <div class="strategy-description">${getStrategyDescription(strategy.name)}</div>
+            <div class="strategy-tags">
+                ${getStrategyTags(strategy.name).map(tag => 
+                    `<span class="tag">${tag}</span>`
+                ).join('')}
+            </div>
+        `;
+        card.addEventListener('click', () => openStrategyModal(strategy));
+        return card;
+    }
+
+    function getStrategyDescription(name) {
+        const descriptions = {
+            'BollingerBreakoutStrategy': 'Trades breakouts from Bollinger Bands with RSI confirmation',
+            'GridStrategy': 'Places buy and sell orders at regular price intervals',
+            'MeanReversionStrategy': 'Capitalizes on price movements returning to the mean'
+        };
+        return descriptions[name] || 'Strategy description not available';
+    }
+
+    function getStrategyTags(name) {
+        const tags = {
+            'BollingerBreakoutStrategy': ['Breakout', 'Technical', 'Momentum'],
+            'GridStrategy': ['Mean Reversion', 'Systematic', 'Range'],
+            'MeanReversionStrategy': ['Mean Reversion', 'Statistical', 'Technical']
+        };
+        return tags[name] || ['Technical'];
+    }
+
+    function openStrategyModal(strategy) {
+        const modal = document.getElementById('strategyModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const parameterInputs = document.getElementById('parameterInputs');
+        
+        modalTitle.textContent = `Configure ${strategy.name}`;
+        parameterInputs.innerHTML = '';
+        
+        // Create parameter inputs
+        Object.entries(strategy.parameters).forEach(([param, values]) => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.innerHTML = `
+                <label for="${param}">${formatParameterName(param)}</label>
+                ${createParameterInput(param, values)}
+            `;
+            parameterInputs.appendChild(div);
+        });
+        
+        modal.style.display = 'block';
+    }
+
+    function formatParameterName(param) {
+        return param
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    function createParameterInput(param, values) {
+        if (Array.isArray(values)) {
+            return `
+                <select id="${param}" name="${param}">
+                    ${values.map(value => 
+                        `<option value="${value}">${value}</option>`
+                    ).join('')}
+                </select>
+            `;
+        } else {
+            return `<input type="number" id="${param}" name="${param}" value="${values}">`;
+        }
+    }
+
+    // Close modal when clicking outside or on close button
+    document.querySelector('.close').addEventListener('click', () => {
+        document.getElementById('strategyModal').style.display = 'none';
+    });
+
+    window.addEventListener('click', (event) => {
+        const modal = document.getElementById('strategyModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Handle form submission
+    document.getElementById('strategyForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = {
+            symbol: formData.get('symbol'),
+            start_date: formData.get('startDate'),
+            end_date: formData.get('endDate'),
+            strategy: document.getElementById('modalTitle').textContent.replace('Configure ', ''),
+            params: {},
+            optimize: document.getElementById('optimizeStrategy').checked
+        };
+
+        // Collect parameter values
+        document.querySelectorAll('#parameterInputs [name]').forEach(input => {
+            data.params[input.name] = input.type === 'number' ? 
+                parseFloat(input.value) : input.value;
+        });
+
+        // Run backtest
+        fetch('/api/run_backtest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'success') {
+                window.location.href = '/backtest_results';
+            }
+        });
+    });
+
+    // Strategy search functionality
+    document.getElementById('strategySearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        document.querySelectorAll('.strategy-card').forEach(card => {
+            const strategyName = card.querySelector('.strategy-name').textContent.toLowerCase();
+            const strategyDesc = card.querySelector('.strategy-description').textContent.toLowerCase();
+            const visible = strategyName.includes(searchTerm) || strategyDesc.includes(searchTerm);
+            card.style.display = visible ? 'block' : 'none';
+        });
+    });
+
+    // Category filter functionality
+    document.getElementById('strategyCategory').addEventListener('change', function(e) {
+        const category = e.target.value;
+        document.querySelectorAll('.strategy-card').forEach(card => {
+            const tags = Array.from(card.querySelectorAll('.tag')).map(tag => tag.textContent.toLowerCase());
+            const visible = category === 'all' || tags.includes(category.toLowerCase());
+            card.style.display = visible ? 'block' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %} 

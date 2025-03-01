@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Backtesting</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Settings Panel -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Backtest Settings</h5>
+                    <form id="backtestForm">
+                        <div class="mb-3">
+                            <label for="tradingPair" class="form-label">Trading Pair</label>
+                            <select id="tradingPair" class="form-select" required>
+                                <option value="BTC/USDT">BTC/USDT</option>
+                                <option value="ETH/USDT">ETH/USDT</option>
+                                <option value="BNB/USDT">BNB/USDT</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="startDate" class="form-label">Start Date</label>
+                            <input type="date" id="startDate" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="endDate" class="form-label">End Date</label>
+                            <input type="date" id="endDate" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="strategy" class="form-label">Strategy</label>
+                            <select id="strategy" class="form-select" required>
+                                <option value="GridStrategy">Grid Strategy</option>
+                                <option value="BollingerBreakoutStrategy">Bollinger Breakout</option>
+                            </select>
+                        </div>
+
+                        <div id="strategyParams">
+                            <!-- Strategy parameters will be added here -->
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Run Backtest</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Results</h5>
+                    <div id="chartContainer" style="height: 400px;">
+                        <div class="text-center text-muted p-5">
+                            Run a backtest to see results
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Trade History</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Price</th>
+                                    <th>Size</th>
+                                    <th>P/L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeHistory">
+                                <tr>
+                                    <td colspan="5" class="text-center">No trades to display</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize strategy parameters
+    updateStrategyParams();
+
+    // Strategy selection change handler
+    document.getElementById('strategy').addEventListener('change', updateStrategyParams);
+
+    // Form submission
+    document.getElementById('backtestForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('tradingPair').value,
+            start_date: document.getElementById('startDate').value,
+            end_date: document.getElementById('endDate').value,
+            strategy: document.getElementById('strategy').value,
+            params: getStrategyParams()
+        };
+
+        try {
+            const response = await fetch('/api/run_backtest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                displayResults(data);
+            } else {
+                alert('Error running backtest: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Backtest error:', error);
+            alert('Error running backtest: ' + error.message);
+        }
+    });
+});
+
+function updateStrategyParams() {
+    const strategy = document.getElementById('strategy').value;
+    const container = document.getElementById('strategyParams');
+    
+    fetch(`/api/strategy_params/${strategy}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                container.innerHTML = '';
+                Object.entries(data.parameters).forEach(([param, value]) => {
+                    container.innerHTML += `
+                        <div class="mb-3">
+                            <label for="${param}" class="form-label">${formatParamName(param)}</label>
+                            <input type="number" 
+                                   id="${param}" 
+                                   name="${param}" 
+                                   class="form-control" 
+                                   value="${value}"
+                                   required>
+                        </div>
+                    `;
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching strategy parameters:', error);
+            container.innerHTML = '<div class="alert alert-danger">Error loading strategy parameters</div>';
+        });
+}
+
+function formatParamName(param) {
+    return param
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+function getStrategyParams() {
+    const params = {};
+    document.querySelectorAll('#strategyParams input').forEach(input => {
+        params[input.name] = parseFloat(input.value);
+    });
+    return params;
+}
+
+function displayResults(data) {
+    // Update chart
+    const chartData = [{
+        type: 'scatter',
+        mode: 'lines',
+        x: data.dates,
+        y: data.equity_curve,
+        name: 'Portfolio Value'
+    }];
+
+    const layout = {
+        title: 'Backtest Results',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Portfolio Value' }
+    };
+
+    Plotly.newPlot('chartContainer', chartData, layout);
+
+    // Update trade history
+    const tradeHistory = document.getElementById('tradeHistory');
+    if (data.trades && data.trades.length > 0) {
+        tradeHistory.innerHTML = data.trades.map(trade => `
+            <tr>
+                <td>${new Date(trade.timestamp).toLocaleString()}</td>
+                <td>${trade.type}</td>
+                <td>${parseFloat(trade.price).toFixed(2)}</td>
+                <td>${parseFloat(trade.size).toFixed(8)}</td>
+                <td class="${trade.profit >= 0 ? 'text-success' : 'text-danger'}">
+                    ${parseFloat(trade.profit).toFixed(2)}
+                </td>
+            </tr>
+        `).join('');
+    } else {
+        tradeHistory.innerHTML = '<tr><td colspan="5" class="text-center">No trades executed</td></tr>';
+    }
+}
+</script>
+{% endblock %} 

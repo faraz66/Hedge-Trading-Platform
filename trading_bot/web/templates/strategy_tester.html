@@ -1,0 +1,1172 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+.app-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+.sidebar {
+    background-color: white;
+    padding: 1.5rem;
+    border-right: 1px solid #e9ecef;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+.main-content {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.settings-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.settings-panel h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.btn {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.tab-container {
+    margin-bottom: 1.5rem;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #495057;
+}
+
+.tab-button.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.tab-content {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.trade-history {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.trade-history th,
+.trade-history td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    text-align: right;
+}
+
+.trade-history th:first-child,
+.trade-history td:first-child,
+.trade-history th:nth-child(2),
+.trade-history td:nth-child(2) {
+    text-align: left;
+}
+
+.trade-history th {
+    background-color: #f8f9fa;
+    font-weight: 500;
+    color: #495057;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.trade-history tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.trade-history .summary-row {
+    background-color: #e9ecef;
+    font-weight: 500;
+}
+
+.profit {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.loss {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+/* Add tooltips for trade details */
+.trade-history td {
+    position: relative;
+}
+
+.trade-history td[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 2;
+}
+
+.parameter-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.parameter-card .param-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.parameter-card .param-value {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.parameter-range {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.parameter-range input[type="range"] {
+    flex: 1;
+}
+
+.optimization-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.param-validation {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.param-validation.valid {
+    color: #28a745;
+}
+
+.param-validation.invalid {
+    color: #dc3545;
+}
+
+.preset-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.preset-badge.conservative {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.preset-badge.moderate {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.preset-badge.aggressive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <!-- Sidebar with Settings -->
+    <div class="sidebar">
+        <div class="settings-panel">
+            <h2>Settings</h2>
+            <form id="strategyForm">
+                <div class="form-group">
+                    <label for="tradingPair">Trading Pair</label>
+                    <select id="tradingPair" class="form-control" required>
+                        <option value="BTC/USDT">BTC/USDT</option>
+                        <option value="ETH/USDT">ETH/USDT</option>
+                        <option value="BNB/USDT">BNB/USDT</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="strategy">Strategy</label>
+                    <select id="strategy" class="form-control" required>
+                        <option value="GridStrategy">Grid Strategy</option>
+                        <option value="BollingerBreakoutStrategy">Bollinger Breakout</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="paramPreset">Parameter Preset</label>
+                    <select id="paramPreset" class="form-control">
+                        <option value="custom">Custom</option>
+                        <option value="conservative">Conservative</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="aggressive">Aggressive</option>
+                    </select>
+                </div>
+
+                <div id="strategyParams">
+                    <!-- Strategy parameters will be dynamically added here -->
+                </div>
+
+                <div id="optimizationPanel" style="display: none;">
+                    <h3>Parameter Optimization</h3>
+                    <div class="optimization-grid">
+                        <!-- Optimization ranges will be added here -->
+                    </div>
+                    <div class="optimization-settings">
+                        <div class="form-group">
+                            <label for="optimizationMetric">Optimization Metric</label>
+                            <select id="optimizationMetric" class="form-control">
+                                <option value="sharpe_ratio">Sharpe Ratio</option>
+                                <option value="total_return">Total Return</option>
+                                <option value="max_drawdown">Minimize Drawdown</option>
+                                <option value="win_rate">Win Rate</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="populationSize">Population Size</label>
+                            <input type="number" id="populationSize" class="form-control" value="50" min="10" max="200">
+                        </div>
+                        <div class="form-group">
+                            <label for="generations">Number of Generations</label>
+                            <input type="number" id="generations" class="form-control" value="10" min="5" max="50">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="optimizeStrategy">
+                    <label for="optimizeStrategy">Optimize Strategy Parameters</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Run Backtest</button>
+                <button type="button" class="btn btn-secondary" id="exportResults">Export Results</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="price">Price & Trades</button>
+                <button class="tab-button" data-tab="indicators">Indicators</button>
+                <button class="tab-button" data-tab="equity">Equity</button>
+                <button class="tab-button" data-tab="heatmaps">Heatmaps</button>
+            </div>
+
+            <div class="tab-content">
+                <div id="chartContainer"></div>
+            </div>
+        </div>
+
+        <!-- Trade History Section -->
+        <div class="tab-content">
+            <h3>Trade History</h3>
+            <table class="trade-history">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Type</th>
+                        <th>Price</th>
+                        <th>Size</th>
+                        <th>Value</th>
+                        <th>Commission</th>
+                        <th>Trade P&L</th>
+                        <th>Running P&L</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="tradeHistory">
+                    <!-- Trade history will be dynamically populated -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize strategy parameters
+    updateStrategyParams();
+
+    // Strategy selection change handler
+    document.getElementById('strategy').addEventListener('change', updateStrategyParams);
+
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            updateChart(button.dataset.tab);
+        });
+    });
+
+    // Form submission
+    document.getElementById('strategyForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('tradingPair').value,
+            start_date: document.getElementById('startDate').value,
+            end_date: document.getElementById('endDate').value,
+            strategy: document.getElementById('strategy').value,
+            optimize: document.getElementById('optimizeStrategy').checked,
+            params: getStrategyParams()
+        };
+
+        try {
+            // Show loading state
+            document.getElementById('chartContainer').innerHTML = '<div style="text-align: center; padding: 2rem;">Loading backtest results...</div>';
+            
+            const response = await fetch('/api/run_backtest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            console.log('API Response:', data); // Debug log
+
+            if (data.status === 'success') {
+                // Ensure we have the correct data structure
+                const results = {
+                    trades: data.trades || [],
+                    historical_data: data.historical_data || [],
+                    equity_curve: data.equity_curve || []
+                };
+                displayResults(results);
+            } else {
+                alert('Error running backtest: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Backtest error:', error);
+            alert('Error running backtest: ' + error.message);
+        }
+    });
+
+    // Export results
+    document.getElementById('exportResults').addEventListener('click', exportResults);
+});
+
+function updateStrategyParams() {
+    const strategy = document.getElementById('strategy').value;
+    const container = document.getElementById('strategyParams');
+    
+    // Default parameters for each strategy
+    const defaultParams = {
+        'GridStrategy': {
+            grid_size: 10,
+            grid_spacing: 0.01,
+            size_multiplier: 1.0
+        },
+        'BollingerBreakoutStrategy': {
+            bb_window: 20,
+            bb_std: 2.0,
+            rsi_window: 14,
+            rsi_oversold: 30,
+            rsi_overbought: 70
+        }
+    };
+
+    // Fetch strategy parameters
+    fetch(`/api/strategy_params/${strategy}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                container.innerHTML = '';
+                
+                // Get default values for the selected strategy
+                const defaults = defaultParams[strategy] || {};
+                
+                Object.entries(data.parameters).forEach(([param, values]) => {
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+                    const defaultValue = defaults[param] || (Array.isArray(values) ? values[0] : values);
+                    
+                    div.innerHTML = `
+                        <label for="${param}">${formatParamName(param)}</label>
+                        ${createParamInput(param, values, defaultValue)}
+                        <small class="form-text text-muted">${getParamDescription(param)}</small>
+                    `;
+                    container.appendChild(div);
+                });
+            } else {
+                console.error('Error fetching strategy parameters:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching strategy parameters:', error);
+            // Set default parameters if fetch fails
+            setDefaultParameters(strategy, container);
+        });
+}
+
+function formatParamName(param) {
+    return param
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+function getParamDescription(param) {
+    const descriptions = {
+        grid_size: 'Number of price levels in the grid',
+        grid_spacing: 'Price difference between grid levels (in %)',
+        size_multiplier: 'Position size multiplier for each trade',
+        bb_window: 'Bollinger Bands calculation period',
+        bb_std: 'Number of standard deviations for Bollinger Bands',
+        rsi_window: 'RSI calculation period',
+        rsi_oversold: 'RSI oversold threshold',
+        rsi_overbought: 'RSI overbought threshold'
+    };
+    return descriptions[param] || '';
+}
+
+function createParamInput(param, values, defaultValue) {
+    const validation = parameterValidation[param] || {};
+    const div = document.createElement('div');
+    div.className = 'parameter-card';
+    
+    if (Array.isArray(values)) {
+        div.innerHTML = `
+            <div class="param-header">
+                <label for="${param}">${formatParamName(param)}</label>
+                <select id="${param}" name="${param}" class="form-control" required>
+                    ${values.map(value => 
+                        `<option value="${value}" ${value === defaultValue ? 'selected' : ''}>${value}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <small class="form-text text-muted">${getParamDescription(param)}</small>
+        `;
+    } else {
+        div.innerHTML = `
+            <div class="param-header">
+                <label for="${param}">${formatParamName(param)}</label>
+                <span class="param-value" id="${param}Value">${defaultValue}</span>
+            </div>
+            <div class="parameter-range">
+                <input type="range" 
+                       id="${param}Range" 
+                       min="${validation.min || 0}"
+                       max="${validation.max || 100}"
+                       step="${getStepSize(param)}"
+                       value="${defaultValue}">
+                <input type="number"
+                       id="${param}"
+                       name="${param}"
+                       class="form-control"
+                       value="${defaultValue}"
+                       step="${getStepSize(param)}"
+                       min="${validation.min || 0}"
+                       max="${validation.max || 100}"
+                       required
+                       style="width: 100px">
+            </div>
+            <small class="form-text text-muted">${getParamDescription(param)}</small>
+            <div class="param-validation" id="${param}Validation"></div>
+        `;
+    }
+    
+    return div;
+}
+
+function getStepSize(param) {
+    const stepSizes = {
+        grid_spacing: 0.001,
+        size_multiplier: 0.1,
+        bb_std: 0.1,
+        grid_size: 1
+    };
+    return stepSizes[param] || 1;
+}
+
+function getMinValue(param) {
+    const minValues = {
+        grid_size: 2,
+        grid_spacing: 0.001,
+        size_multiplier: 0.1,
+        bb_window: 5,
+        bb_std: 0.1,
+        rsi_window: 2,
+        rsi_oversold: 0,
+        rsi_overbought: 1
+    };
+    return minValues[param] || 0;
+}
+
+function setDefaultParameters(strategy, container) {
+    const defaultParams = {
+        'GridStrategy': [
+            { name: 'grid_size', value: 10, type: 'number' },
+            { name: 'grid_spacing', value: 0.01, type: 'number' },
+            { name: 'size_multiplier', value: 1.0, type: 'number' }
+        ],
+        'BollingerBreakoutStrategy': [
+            { name: 'bb_window', value: 20, type: 'number' },
+            { name: 'bb_std', value: 2.0, type: 'number' },
+            { name: 'rsi_window', value: 14, type: 'number' },
+            { name: 'rsi_oversold', value: 30, type: 'number' },
+            { name: 'rsi_overbought', value: 70, type: 'number' }
+        ]
+    };
+
+    const params = defaultParams[strategy] || [];
+    container.innerHTML = '';
+    
+    params.forEach(param => {
+        const div = document.createElement('div');
+        div.className = 'form-group';
+        div.innerHTML = `
+            <label for="${param.name}">${formatParamName(param.name)}</label>
+            <input type="${param.type}" 
+                   id="${param.name}" 
+                   name="${param.name}" 
+                   class="form-control" 
+                   value="${param.value}"
+                   step="${getStepSize(param.name)}"
+                   min="${getMinValue(param.name)}"
+                   required>
+            <small class="form-text text-muted">${getParamDescription(param.name)}</small>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function getStrategyParams() {
+    const params = {};
+    document.querySelectorAll('#strategyParams [name]').forEach(input => {
+        params[input.name] = input.type === 'number' ? parseFloat(input.value) : input.value;
+    });
+    return params;
+}
+
+function displayResults(results) {
+    console.log('Displaying results:', results); // Debug log
+
+    try {
+        // Validate required data
+        if (!results || typeof results !== 'object') {
+            throw new Error('Invalid results data');
+        }
+
+        // Initialize missing data with empty arrays
+        results.trades = results.trades || [];
+        results.historical_data = results.historical_data || [];
+        results.equity_curve = results.equity_curve || [];
+
+        // Update trade history first (it's simpler)
+        if (results.trades.length > 0) {
+            updateTradeHistory(results.trades);
+        } else {
+            document.getElementById('tradeHistory').innerHTML = '<tr><td colspan="9">No trades executed during this period</td></tr>';
+        }
+
+        // Get active tab and update chart
+        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+        updateChart(activeTab, results);
+
+    } catch (error) {
+        console.error('Error in displayResults:', error);
+        document.getElementById('chartContainer').innerHTML = `
+            <div style="padding: 1rem; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; color: #856404;">
+                <strong>Error displaying results:</strong> ${error.message}
+            </div>`;
+    }
+}
+
+function calculateEquityCurve(trades) {
+    if (!trades || trades.length === 0) return [];
+    
+    // Sort trades by timestamp
+    const sortedTrades = [...trades].sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    let equity = 1000; // Starting equity
+    let maxEquity = equity;
+    const equityCurve = [];
+
+    sortedTrades.forEach(trade => {
+        const profit = parseFloat(trade.profit) || 0;
+        equity += profit;
+        maxEquity = Math.max(maxEquity, equity);
+        const drawdown = ((maxEquity - equity) / maxEquity) * 100;
+
+        equityCurve.push({
+            timestamp: trade.timestamp,
+            equity: equity,
+            drawdown: -drawdown // Negative to show drawdown going down
+        });
+    });
+
+    return equityCurve;
+}
+
+function updateChart(tabName, data) {
+    console.log('Updating chart:', tabName, data); // Debug log
+    
+    const container = document.getElementById('chartContainer');
+    if (!container) return;
+
+    try {
+        switch(tabName) {
+            case 'price':
+                if (!Array.isArray(data.historical_data) || data.historical_data.length === 0) {
+                    throw new Error('No historical price data available');
+                }
+
+                const priceData = {
+                    data: [{
+                        type: 'candlestick',
+                        x: data.historical_data.map(d => new Date(d.timestamp)),
+                        open: data.historical_data.map(d => Number(d.open)),
+                        high: data.historical_data.map(d => Number(d.high)),
+                        low: data.historical_data.map(d => Number(d.low)),
+                        close: data.historical_data.map(d => Number(d.close)),
+                        name: 'Price',
+                        increasing: {line: {color: '#26a69a'}},
+                        decreasing: {line: {color: '#ef5350'}}
+                    }],
+                    layout: {
+                        title: 'Price Chart with Trades',
+                        xaxis: {
+                            title: 'Date',
+                            rangeslider: {visible: false}
+                        },
+                        yaxis: {title: 'Price'},
+                        plot_bgcolor: '#ffffff',
+                        paper_bgcolor: '#ffffff',
+                        height: 600
+                    }
+                };
+
+                // Add trade markers if available
+                if (Array.isArray(data.trades) && data.trades.length > 0) {
+                    // Add buy trades
+                    const buyTrades = data.trades.filter(t => t.type === 'BUY');
+                    if (buyTrades.length > 0) {
+                        priceData.data.push({
+                            type: 'scatter',
+                            x: buyTrades.map(t => new Date(t.timestamp)),
+                            y: buyTrades.map(t => Number(t.price)),
+                            mode: 'markers',
+                            name: 'Buy',
+                            marker: {
+                                symbol: 'triangle-up',
+                                size: 10,
+                                color: '#26a69a'
+                            }
+                        });
+                    }
+
+                    // Add sell trades
+                    const sellTrades = data.trades.filter(t => t.type === 'SELL');
+                    if (sellTrades.length > 0) {
+                        priceData.data.push({
+                            type: 'scatter',
+                            x: sellTrades.map(t => new Date(t.timestamp)),
+                            y: sellTrades.map(t => Number(t.price)),
+                            mode: 'markers',
+                            name: 'Sell',
+                            marker: {
+                                symbol: 'triangle-down',
+                                size: 10,
+                                color: '#ef5350'
+                            }
+                        });
+                    }
+                }
+
+                Plotly.newPlot(container, priceData.data, priceData.layout);
+                break;
+
+            case 'equity':
+                if (!Array.isArray(data.trades) || data.trades.length === 0) {
+                    throw new Error('No trade data available for equity curve');
+                }
+
+                const equityCurve = calculateEquityCurve(data.trades);
+                if (equityCurve.length === 0) {
+                    throw new Error('Could not calculate equity curve');
+                }
+
+                const equityData = {
+                    data: [{
+                        type: 'scatter',
+                        x: equityCurve.map(d => new Date(d.timestamp)),
+                        y: equityCurve.map(d => d.equity),
+                        name: 'Portfolio Value',
+                        line: {color: '#2196f3'},
+                        fill: 'tozeroy'
+                    }],
+                    layout: {
+                        title: 'Portfolio Performance',
+                        xaxis: {title: 'Date'},
+                        yaxis: {title: 'Portfolio Value'},
+                        height: 600
+                    }
+                };
+
+                Plotly.newPlot(container, equityData.data, equityData.layout);
+                break;
+
+            case 'heatmaps':
+                if (!Array.isArray(data.trades) || data.trades.length === 0) {
+                    throw new Error('No trade data available for heatmap');
+                }
+
+                const heatmapData = processHeatmapData(data.trades);
+                const heatmapLayout = {
+                    title: 'Trading Activity Heatmap',
+                    xaxis: {
+                        title: 'Hour of Day',
+                        tickmode: 'array',
+                        ticktext: Array.from({length: 24}, (_, i) => 
+                            i.toString().padStart(2, '0') + ':00'),
+                        tickvals: Array.from({length: 24}, (_, i) => i)
+                    },
+                    yaxis: {
+                        title: 'Day of Week',
+                        tickmode: 'array',
+                        ticktext: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        tickvals: [0, 1, 2, 3, 4, 5, 6]
+                    },
+                    height: 600
+                };
+
+                Plotly.newPlot(container, [{
+                    type: 'heatmap',
+                    z: heatmapData.values,
+                    x: heatmapData.hours,
+                    y: heatmapData.days,
+                    colorscale: [
+                        [0, '#ef5350'],
+                        [0.5, '#ffffff'],
+                        [1, '#26a69a']
+                    ],
+                    showscale: true
+                }], heatmapLayout);
+                break;
+
+            default:
+                throw new Error(`Unknown tab type: ${tabName}`);
+        }
+    } catch (error) {
+        console.error(`Error updating ${tabName} chart:`, error);
+        container.innerHTML = `
+            <div style="padding: 1rem; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; color: #856404;">
+                <strong>Error displaying ${tabName} chart:</strong> ${error.message}
+            </div>`;
+    }
+}
+
+function processHeatmapData(trades) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const hours = Array.from({length: 24}, (_, i) => i);
+    
+    // Initialize heatmap data
+    const heatmap = Array(7).fill().map(() => Array(24).fill(0));
+    
+    // Process trades
+    trades.forEach(trade => {
+        const date = new Date(trade.timestamp);
+        const day = date.getDay();
+        const hour = date.getHours();
+        heatmap[day][hour] += trade.profit || 0;
+    });
+    
+    return {
+        values: heatmap,
+        days: days,
+        hours: hours
+    };
+}
+
+function updateTradeHistory(trades) {
+    const tbody = document.getElementById('tradeHistory');
+    if (!tbody || !trades) return;
+
+    let runningPnL = 0;
+    let previousTradeTime = null;
+    
+    tbody.innerHTML = trades.map(trade => {
+        // Calculate trade duration if we have a previous trade
+        let duration = '-';
+        if (previousTradeTime) {
+            const timeDiff = new Date(trade.timestamp) - previousTradeTime;
+            duration = (timeDiff / (1000 * 60 * 60)).toFixed(1) + ' hours';
+        }
+        previousTradeTime = new Date(trade.timestamp);
+
+        // Calculate P&L
+        const profit = parseFloat(trade.profit) || 0;
+        runningPnL += profit;
+
+        return `
+            <tr>
+                <td>${new Date(trade.timestamp).toLocaleString()}</td>
+                <td>${trade.type}</td>
+                <td>${parseFloat(trade.price).toFixed(2)}</td>
+                <td>${parseFloat(trade.size).toFixed(8)}</td>
+                <td>${parseFloat(trade.value).toFixed(2)}</td>
+                <td>${(parseFloat(trade.commission) || 0).toFixed(2)}</td>
+                <td class="${profit >= 0 ? 'profit' : 'loss'}">${profit.toFixed(2)}</td>
+                <td class="${runningPnL >= 0 ? 'profit' : 'loss'}">${runningPnL.toFixed(2)}</td>
+                <td>${duration}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Add summary row
+    const summary = calculateTradeSummary(trades);
+    tbody.innerHTML += `
+        <tr class="summary-row">
+            <td colspan="3"><strong>Summary</strong></td>
+            <td><strong>${summary.totalTrades} trades</strong></td>
+            <td><strong>Win rate: ${summary.winRate}%</strong></td>
+            <td><strong>Avg profit: ${summary.avgProfit}</strong></td>
+            <td colspan="2" class="${summary.totalPnL >= 0 ? 'profit' : 'loss'}">
+                <strong>Total P&L: ${summary.totalPnL}</strong>
+            </td>
+            <td><strong>Avg duration: ${summary.avgDuration}</strong></td>
+        </tr>
+    `;
+}
+
+function calculateTradeSummary(trades) {
+    const winningTrades = trades.filter(t => (t.profit || 0) > 0);
+    const totalPnL = trades.reduce((sum, t) => sum + (t.profit || 0), 0);
+    const avgDuration = trades.reduce((sum, t) => sum + (t.duration || 0), 0) / trades.length / 3600;
+    
+    return {
+        totalTrades: trades.length,
+        winRate: ((winningTrades.length / trades.length) * 100).toFixed(1),
+        avgProfit: (totalPnL / trades.length).toFixed(2),
+        totalPnL: totalPnL.toFixed(2),
+        avgDuration: `${avgDuration.toFixed(1)} hours`
+    };
+}
+
+function exportResults() {
+    fetch('/api/export_results', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            trades: Array.from(document.querySelectorAll('#tradeHistory tr')).map(row => ({
+                timestamp: row.cells[0].textContent,
+                type: row.cells[1].textContent,
+                price: parseFloat(row.cells[2].textContent),
+                size: parseFloat(row.cells[3].textContent),
+                value: parseFloat(row.cells[4].textContent),
+                commission: parseFloat(row.cells[5].textContent),
+                profit: parseFloat(row.cells[6].textContent)
+            }))
+        })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backtest_results.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+}
+
+// Strategy parameter presets
+const parameterPresets = {
+    'GridStrategy': {
+        conservative: {
+            grid_size: 6,
+            grid_spacing: 0.005,
+            size_multiplier: 0.5
+        },
+        moderate: {
+            grid_size: 10,
+            grid_spacing: 0.01,
+            size_multiplier: 1.0
+        },
+        aggressive: {
+            grid_size: 16,
+            grid_spacing: 0.02,
+            size_multiplier: 2.0
+        }
+    },
+    'BollingerBreakoutStrategy': {
+        conservative: {
+            bb_window: 30,
+            bb_std: 2.5,
+            rsi_window: 21,
+            rsi_oversold: 25,
+            rsi_overbought: 75
+        },
+        moderate: {
+            bb_window: 20,
+            bb_std: 2.0,
+            rsi_window: 14,
+            rsi_oversold: 30,
+            rsi_overbought: 70
+        },
+        aggressive: {
+            bb_window: 10,
+            bb_std: 1.5,
+            rsi_window: 7,
+            rsi_oversold: 35,
+            rsi_overbought: 65
+        }
+    }
+};
+
+// Parameter validation rules
+const parameterValidation = {
+    grid_size: {
+        min: 2,
+        max: 50,
+        validate: (value) => {
+            if (value < 2) return 'Grid size must be at least 2';
+            if (value > 50) return 'Grid size cannot exceed 50';
+            if (!Number.isInteger(value)) return 'Grid size must be a whole number';
+            return true;
+        }
+    },
+    grid_spacing: {
+        min: 0.001,
+        max: 0.1,
+        validate: (value) => {
+            if (value < 0.001) return 'Grid spacing must be at least 0.1%';
+            if (value > 0.1) return 'Grid spacing cannot exceed 10%';
+            return true;
+        }
+    },
+    bb_window: {
+        min: 5,
+        max: 50,
+        validate: (value) => {
+            if (value < 5) return 'Window must be at least 5 periods';
+            if (value > 50) return 'Window cannot exceed 50 periods';
+            if (!Number.isInteger(value)) return 'Window must be a whole number';
+            return true;
+        }
+    }
+};
+
+// Add event listeners for parameter presets
+document.getElementById('paramPreset').addEventListener('change', function(e) {
+    const strategy = document.getElementById('strategy').value;
+    const preset = e.target.value;
+    
+    if (preset !== 'custom') {
+        const presetValues = parameterPresets[strategy][preset];
+        Object.entries(presetValues).forEach(([param, value]) => {
+            const input = document.getElementById(param);
+            const rangeInput = document.getElementById(param + 'Range');
+            const valueDisplay = document.getElementById(param + 'Value');
+            
+            if (input) input.value = value;
+            if (rangeInput) rangeInput.value = value;
+            if (valueDisplay) valueDisplay.textContent = value;
+            
+            validateParameter(param, value);
+        });
+    }
+});
+
+// Add event listeners for optimization panel
+document.getElementById('optimizeStrategy').addEventListener('change', function(e) {
+    const optimizationPanel = document.getElementById('optimizationPanel');
+    optimizationPanel.style.display = e.target.checked ? 'block' : 'none';
+    
+    if (e.target.checked) {
+        updateOptimizationRanges();
+    }
+});
+
+function updateOptimizationRanges() {
+    const strategy = document.getElementById('strategy').value;
+    const container = document.querySelector('.optimization-grid');
+    const params = Object.keys(parameterPresets[strategy].moderate);
+    
+    container.innerHTML = params.map(param => `
+        <div class="parameter-card">
+            <div class="param-header">
+                <label>${formatParamName(param)} Range</label>
+            </div>
+            <div class="form-group">
+                <label>Min</label>
+                <input type="number" 
+                       id="${param}Min"
+                       class="form-control"
+                       value="${parameterValidation[param]?.min || 0}"
+                       step="${getStepSize(param)}">
+            </div>
+            <div class="form-group">
+                <label>Max</label>
+                <input type="number"
+                       id="${param}Max"
+                       class="form-control"
+                       value="${parameterValidation[param]?.max || 100}"
+                       step="${getStepSize(param)}">
+            </div>
+            <div class="form-group">
+                <label>Step</label>
+                <input type="number"
+                       id="${param}Step"
+                       class="form-control"
+                       value="${getStepSize(param)}">
+            </div>
+        </div>
+    `).join('');
+}
+
+function validateParameter(param, value) {
+    const validation = parameterValidation[param];
+    if (!validation) return true;
+    
+    const validationDiv = document.getElementById(param + 'Validation');
+    if (!validationDiv) return true;
+    
+    const result = validation.validate(parseFloat(value));
+    if (result === true) {
+        validationDiv.className = 'param-validation valid';
+        validationDiv.textContent = '✓ Valid';
+        return true;
+    } else {
+        validationDiv.className = 'param-validation invalid';
+        validationDiv.textContent = '✗ ' + result;
+        return false;
+    }
+}
+
+// Add validation to form submission
+document.getElementById('strategyForm').addEventListener('submit', function(e) {
+    const params = getStrategyParams();
+    let isValid = true;
+    
+    Object.entries(params).forEach(([param, value]) => {
+        if (!validateParameter(param, value)) {
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        e.preventDefault();
+        alert('Please correct the parameter errors before running the backtest.');
+    }
+});
+</script>
+{% endblock %} 

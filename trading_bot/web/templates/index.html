@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Advanced Grid Strategy Backtester</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet" />
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background-color: var(--primary-color);
+            padding: 1rem;
+        }
+
+        .navbar-brand {
+            color: white !important;
+            font-weight: bold;
+        }
+
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+
+        .card-header {
+            background-color: var(--secondary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 1rem;
+        }
+
+        .card-header .nav-tabs {
+            border-bottom: none;
+        }
+
+        .metrics-card {
+            transition: transform 0.2s;
+        }
+
+        .metrics-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .chart-container {
+            width: 100%;
+            min-height: 500px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .trades-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .tab-content {
+            padding: 20px;
+        }
+
+        .nav-tabs .nav-link {
+            color: #ffffff !important;
+            background-color: rgba(52, 73, 94, 0.7);
+            margin-right: 5px;
+            border: none;
+            border-radius: 5px 5px 0 0;
+        }
+
+        .nav-tabs .nav-link:hover {
+            background-color: rgba(52, 73, 94, 0.9);
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #2c3e50 !important;
+            background-color: #ffffff;
+            font-weight: bold;
+        }
+
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .button {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        .heatmap-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+
+        .heatmap-toggle {
+            margin-right: 15px;
+            padding: 8px 16px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            background: #f6f8fa;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #24292e;
+            transition: all 0.2s ease;
+        }
+
+        .heatmap-toggle.active {
+            background: #2ea44f;
+            color: white;
+            border-color: rgba(27, 31, 35, 0.15);
+        }
+
+        .heatmap-container {
+            width: 100%;
+            height: 800px;
+            margin-bottom: 20px;
+        }
+
+        .heatmap-controls {
+            margin: 20px 0;
+        }
+
+        .heatmap-controls .btn {
+            margin-right: 10px;
+        }
+
+        .heatmap-controls .btn.active {
+            background-color: #0056b3;
+        }
+
+        .heatmap-section {
+            background: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .analysis-header {
+            padding: 16px 20px;
+            background: #f6f8fa;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .analysis-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #24292e;
+            margin-bottom: 4px;
+        }
+
+        .text-muted {
+            font-size: 13px;
+            color: #586069;
+        }
+
+        .stats-summary {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: right;
+            min-width: 120px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #586069;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #24292e;
+        }
+
+        .heatmap-plot {
+            background: white;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            height: 300px;
+            border: 1px solid #e1e4e8;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bx bx-line-chart"></i> Advanced Grid Strategy Backtester
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Settings Panel -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bx bx-cog"></i> Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="backtest-form">
+                            <div class="mb-3">
+                                <label for="symbol" class="form-label">Trading Pair</label>
+                                <select class="form-select" id="symbol" required>
+                                    <!-- Example symbols; adapt as needed -->
+                                    <option value="BTC/USDT">BTC/USDT</option>
+                                    <option value="ETH/USDT">ETH/USDT</option>
+                                    <option value="DOGE/USDT">DOGE/USDT</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="start-date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start-date" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="end-date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end-date" />
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="optimize-strategy" />
+                                    <label class="form-check-label" for="optimize-strategy">
+                                        Optimize Strategy Parameters
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bx bx-play"></i> Run Backtest
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="export-results" disabled>
+                                    <i class="bx bx-download"></i> Export Results
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <!-- Performance Metrics -->
+                <div class="row" id="metrics-container"></div>
+
+                <!-- Charts Tabs -->
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="price-tab" data-bs-toggle="tab"
+                                    data-bs-target="#price-chart" type="button" role="tab">
+                                    <i class="bx bx-line-chart"></i> Price & Trades
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="indicators-tab" data-bs-toggle="tab"
+                                    data-bs-target="#indicators" type="button" role="tab">
+                                    <i class="bx bx-stats"></i> Indicators
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="equity-tab" data-bs-toggle="tab" data-bs-target="#equity"
+                                    type="button" role="tab">
+                                    <i class="bx bx-trending-up"></i> Equity
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="heatmaps-tab" data-bs-toggle="tab"
+                                    data-bs-target="#heatmaps" type="button" role="tab">
+                                    <i class="bx bx-grid"></i> Heatmaps
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="myTabContent">
+                            <div class="tab-pane fade show active" id="price-chart" role="tabpanel">
+                                <div id="main-chart"></div>
+                            </div>
+                            <div class="tab-pane fade" id="indicators" role="tabpanel">
+                                <div id="technical-indicators"></div>
+                            </div>
+                            <div class="tab-pane fade" id="equity" role="tabpanel">
+                                <div id="equity-chart"></div>
+                            </div>
+                            <div class="tab-pane fade" id="heatmaps" role="tabpanel">
+                                <div class="heatmap-controls mb-3">
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-primary active" id="trade-analysis-btn"
+                                            onclick="toggleHeatmapType('trade')">
+                                            Trade Analysis
+                                        </button>
+                                        <button class="btn btn-primary" id="returns-analysis-btn"
+                                            onclick="toggleHeatmapType('returns')">
+                                            Returns Analysis
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-12">
+                                        <!-- Trade Heatmaps -->
+                                        <div id="trade-heatmaps" class="heatmap-section">
+                                            <div class="analysis-header">
+                                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                                    <div>
+                                                        <h5 class="analysis-title">Daily Trade Analysis</h5>
+                                                        <p class="text-muted">
+                                                            Distribution of trading activity by day and hour
+                                                        </p>
+                                                    </div>
+                                                    <div class="stats-summary">
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Total Trades:</span>
+                                                            <span class="stat-value" id="total-trades">-</span>
+                                                        </div>
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Most Active Hour:</span>
+                                                            <span class="stat-value" id="most-active-hour">-</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="daily-trade-heatmap" class="heatmap-plot"></div>
+
+                                            <div class="analysis-header mt-5">
+                                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                                    <div>
+                                                        <h5 class="analysis-title">
+                                                            Monthly Trade Analysis
+                                                        </h5>
+                                                        <p class="text-muted">
+                                                            Distribution of trading activity by month and year
+                                                        </p>
+                                                    </div>
+                                                    <div class="stats-summary">
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Best Month:</span>
+                                                            <span class="stat-value" id="best-month">-</span>
+                                                        </div>
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Worst Month:</span>
+                                                            <span class="stat-value" id="worst-month">-</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="monthly-trade-heatmap" class="heatmap-plot"></div>
+                                        </div>
+
+                                        <!-- Returns Heatmaps -->
+                                        <div id="returns-heatmaps" class="heatmap-section" style="display: none">
+                                            <div class="analysis-header">
+                                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                                    <div>
+                                                        <h5 class="analysis-title">Daily Returns Analysis</h5>
+                                                        <p class="text-muted">
+                                                            Distribution of trading returns by day and hour
+                                                        </p>
+                                                    </div>
+                                                    <div class="stats-summary">
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Best Hour:</span>
+                                                            <span class="stat-value" id="best-hour">-</span>
+                                                        </div>
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Average Daily Return:</span>
+                                                            <span class="stat-value" id="avg-daily-return">-</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="daily-returns-heatmap" class="heatmap-plot"></div>
+
+                                            <div class="analysis-header mt-5">
+                                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                                    <div>
+                                                        <h5 class="analysis-title">
+                                                            Monthly Returns Analysis
+                                                        </h5>
+                                                        <p class="text-muted">
+                                                            Distribution of trading returns by month and year
+                                                        </p>
+                                                    </div>
+                                                    <div class="stats-summary">
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Best Month:</span>
+                                                            <span class="stat-value" id="best-return-month">-</span>
+                                                        </div>
+                                                        <div class="stat-item">
+                                                            <span class="stat-label">Average Monthly Return:</span>
+                                                            <span class="stat-value" id="avg-monthly-return">-</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="monthly-returns-heatmap" class="heatmap-plot"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trades Table -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bx bx-table"></i> Trade History
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="trades-table">
+                            <table class="table table-striped" id="trades-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Price</th>
+                                        <th>Size</th>
+                                        <th>Value</th>
+                                        <th>Commission</th>
+                                        <th>Profit/Loss</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Trades will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(
+            document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        );
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Set default dates
+        const today = new Date();
+        const startDate = new Date('2013-01-01');
+        document.getElementById('start-date').value = startDate
+            .toISOString()
+            .split('T')[0];
+        document.getElementById('end-date').value = today
+            .toISOString()
+            .split('T')[0];
+
+        // Handle form submission
+        document
+            .getElementById('backtest-form')
+            .addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                // Show loading overlay
+                document.getElementById('loading-overlay').style.display = 'flex';
+
+                try {
+                    const symbol = document.getElementById('symbol').value;
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+                    const optimize = document.getElementById('optimize-strategy').checked;
+
+                    // First ensure cache directory exists
+                    await fetch('/ensure_cache', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ symbol: symbol }),
+                    });
+
+                    // Then run backtest
+                    const response = await fetch('/run_backtest', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            symbol: symbol,
+                            start_date: startDate,
+                            end_date: endDate || null,
+                            optimize: optimize,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    // Enable export button
+                    document.getElementById('export-results').disabled = false;
+
+                    // Update UI with results
+                    updateUI(data);
+
+                    // Show optimization results if applicable
+                    if (optimize && data.optimized_params) {
+                        Swal.fire({
+                            title: 'Optimization Results',
+                            html: `
+                <div class="text-start">
+                  <h6>Best Parameters:</h6>
+                  <ul>
+                    ${Object.entries(data.optimized_params.params)
+                                    .map(([key, value]) => `<li>${key}: ${value}</li>`)
+                                    .join('')}
+                  </ul>
+                  <p>Sharpe Ratio: ${data.optimized_params.sharpe_ratio.toFixed(
+                                        2
+                                    )}</p>
+                </div>
+              `,
+                            icon: 'success',
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'An error occurred while running the backtest.',
+                        icon: 'error',
+                    });
+                } finally {
+                    // Hide loading overlay
+                    document.getElementById('loading-overlay').style.display = 'none';
+                }
+            });
+
+        // Handle export button click
+        document
+            .getElementById('export-results')
+            .addEventListener('click', async () => {
+                const response = await fetch('/export_results', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(window.lastResults),
+                });
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backtest_results_${new Date().toISOString()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            });
+
+        // Main function to update UI
+        function updateUI(data) {
+            try {
+                // Store results for export
+                window.lastResults = data;
+
+                // Update metrics
+                updateMetrics(data.metrics);
+
+                // Update charts
+                updateCharts(data.charts);
+
+                // Update trades table
+                updateTradesTable(data.trades);
+
+                // Initialize tab events
+                initializeTabEvents();
+            } catch (error) {
+                console.error('Error in updateUI:', error);
+            }
+        }
+
+        // Populate the metrics cards
+        function updateMetrics(metrics) {
+            const metricsContainer = document.getElementById('metrics-container');
+            if (!metricsContainer) return;
+
+            if (!metrics) {
+                metricsContainer.innerHTML = '';
+                return;
+            }
+
+            metricsContainer.innerHTML = Object.entries(metrics)
+                .map(
+                    ([key, value]) => `
+            <div class="col-md-3 col-lg-2">
+              <div class="card metrics-card">
+                <div class="card-body">
+                  <h6 class="card-subtitle mb-2 text-muted">
+                    ${key.replace(/_/g, ' ').toUpperCase()}
+                  </h6>
+                  <h5 class="card-title ${getMetricColor(key, value)}">
+                    ${value}
+                  </h5>
+                </div>
+              </div>
+            </div>
+          `
+                )
+                .join('');
+        }
+
+        // Decide the color for metric text
+        function getMetricColor(key, value) {
+            if (key.includes('return') || key.includes('ratio')) {
+                return parseFloat(value) >= 0 ? 'text-success' : 'text-danger';
+            }
+            return '';
+        }
+
+        // Create or update the charts
+        function updateCharts(charts) {
+            // Price & Trades chart
+            if (charts && charts.main_chart) {
+                const mainChartData = JSON.parse(charts.main_chart);
+                Plotly.newPlot('main-chart', mainChartData.data, mainChartData.layout);
+            }
+
+            // Indicators chart
+            if (charts && charts.indicators) {
+                const indicatorsData = JSON.parse(charts.indicators);
+                Plotly.newPlot(
+                    'technical-indicators',
+                    indicatorsData.data,
+                    indicatorsData.layout
+                );
+            }
+
+            // Equity chart
+            if (charts && charts.equity_curve) {
+                const equityData = JSON.parse(charts.equity_curve);
+                Plotly.newPlot('equity-chart', equityData.data, equityData.layout);
+            }
+
+            // Heatmaps
+            updateHeatmaps(charts);
+        }
+
+        // Build and plot the heatmaps
+        function updateHeatmaps(charts) {
+            console.log('Processing trade history for heatmaps...');
+
+            try {
+                const trades = window.lastResults.trades || [];
+
+                // ---------------------
+                // 1) DAILY TRADE HEATMAP
+                // ---------------------
+                // For example: day of week (y) vs hour (x)
+                // You can adapt to your data or remove if not needed
+                const dailyMatrix = Array.from({ length: 7 }, () =>
+                    new Array(24).fill(0)
+                );
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+                trades.forEach((trade) => {
+                    const d = new Date(trade.timestamp);
+                    const dayOfWeek = d.getDay(); // 0=Sun
+                    const hour = d.getHours();
+                    dailyMatrix[dayOfWeek][hour] += 1;
+                });
+
+                // Flatten to find max for color scale if needed
+                const maxDailyTrades = Math.max(...dailyMatrix.flat());
+
+                const dailyHeatmapTrace = {
+                    type: 'heatmap',
+                    x: Array.from({ length: 24 }, (_, i) => i.toString()),
+                    y: dayNames,
+                    z: dailyMatrix,
+                    colorscale: 'Blues',
+                    hoverongaps: false,
+                    zmin: 0,
+                    zmax: maxDailyTrades,
+                    hovertemplate:
+                        '<b>%{z} Trades</b><br>Day: %{y}<br>Hour: %{x}<extra></extra>',
+                    showscale: true,
+                };
+
+                const dailyLayout = {
+                    margin: { l: 60, r: 20, t: 10, b: 30 },
+                    xaxis: {
+                        title: 'Hour of Day',
+                        tickmode: 'array',
+                        tickvals: [...Array(24).keys()],
+                        fixedrange: true,
+                    },
+                    yaxis: {
+                        title: 'Day of Week',
+                        autorange: 'reversed',
+                        fixedrange: true,
+                    },
+                    paper_bgcolor: '#ffffff',
+                    plot_bgcolor: '#ffffff',
+                };
+
+                Plotly.newPlot(
+                    'daily-trade-heatmap',
+                    [dailyHeatmapTrace],
+                    dailyLayout,
+                    { responsive: true, displayModeBar: false }
+                );
+
+                // ---------------------
+                // 2) MONTHLY TRADE HEATMAP (GitHub style)
+                // ---------------------
+                // We'll do day-of-month (y) vs month (x), or vice versa
+                // For multiple years, you might need a different approach or break it down by year.
+                // Here, we assume data in day-of-month, month-of-year format
+
+                const monthlyData = new Array(31)
+                    .fill(null)
+                    .map(() => new Array(12).fill(0));
+                const monthlyTradeCount = new Array(31)
+                    .fill(null)
+                    .map(() => new Array(12).fill(0));
+
+                // We'll store a "date label" so we can do "XX Trades on Aug 23, 2024"
+                // Realistically, you might store separate arrays by year, or track each day precisely.
+                const dateLabels = new Array(31)
+                    .fill(null)
+                    .map(() => new Array(12).fill(''));
+
+                trades.forEach((trade) => {
+                    const dateObj = new Date(trade.timestamp);
+                    const d = dateObj.getDate() - 1; // 0-based day
+                    const m = dateObj.getMonth(); // 0-based month
+                    const year = dateObj.getFullYear();
+
+                    // Build a short date label like "Aug 23, 2024"
+                    const dateStr = dateObj.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                    });
+
+                    // Initialize label if empty
+                    if (!dateLabels[d][m]) {
+                        dateLabels[d][m] = dateStr;
+                    }
+
+                    // Count trades for that day
+                    monthlyData[d][m] += 1;
+                    monthlyTradeCount[d][m] += 1;
+                });
+
+                // Flatten to find maximum trades for color scale
+                const maxTrades = Math.max(...monthlyData.flat());
+
+                // GitHub-like color scale (light grey -> dark green)
+                const githubColorScale = [
+                    [0, '#ebedf0'],
+                    [0.25, '#c6e48b'],
+                    [0.5, '#7bc96f'],
+                    [0.75, '#239a3b'],
+                    [1, '#196127'],
+                ];
+
+                // We want day-of-month as Y, months as X
+                const months = [
+                    'Jan',
+                    'Feb',
+                    'Mar',
+                    'Apr',
+                    'May',
+                    'Jun',
+                    'Jul',
+                    'Aug',
+                    'Sep',
+                    'Oct',
+                    'Nov',
+                    'Dec',
+                ];
+                const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
+
+                // Build customdata with { trades, dateLabel }
+                const monthlyCustomData = monthlyData.map((row, dayIdx) => {
+                    return row.map((val, monthIdx) => {
+                        return {
+                            trades: val,
+                            dateLabel: dateLabels[dayIdx][monthIdx],
+                        };
+                    });
+                });
+
+                const monthlyHeatmapTrace = {
+                    type: 'heatmap',
+                    x: months,
+                    y: days,
+                    z: monthlyData,
+                    customdata: monthlyCustomData,
+                    colorscale: githubColorScale,
+                    hoverongaps: false,
+                    showscale: false, // Hide color bar for a cleaner look
+                    zmin: 0,
+                    zmax: maxTrades,
+                    // Show "XX Trades on Aug 23, 2024"
+                    hovertemplate:
+                        '%{customdata.trades} Trades on %{customdata.dateLabel}<extra></extra>',
+                };
+
+                const monthlyLayout = {
+                    margin: { l: 0, r: 0, t: 0, b: 0 },
+                    xaxis: {
+                        visible: false,
+                        fixedrange: true,
+                    },
+                    yaxis: {
+                        visible: false,
+                        autorange: 'reversed',
+                        fixedrange: true,
+                    },
+                    paper_bgcolor: '#ffffff',
+                    plot_bgcolor: '#ffffff',
+                };
+
+                Plotly.newPlot(
+                    'monthly-trade-heatmap',
+                    [monthlyHeatmapTrace],
+                    monthlyLayout,
+                    { responsive: true, displayModeBar: false }
+                );
+
+                // ---------------------
+                // 3) DAILY RETURNS HEATMAP (example only)
+                // ---------------------
+                // If you want to keep your returns analysis separate, adapt similarly
+                // For now, we just show a placeholder if you want to keep that logic
+                const dailyReturnsTrace = {
+                    type: 'heatmap',
+                    x: ['Placeholder'],
+                    y: ['Placeholder'],
+                    z: [[0]],
+                    hovertemplate: 'Returns Heatmap Example<extra></extra>',
+                };
+                Plotly.newPlot('daily-returns-heatmap', [dailyReturnsTrace], {}, {
+                    responsive: true,
+                    displayModeBar: false,
+                });
+
+                // 4) MONTHLY RETURNS HEATMAP (example only)
+                const monthlyReturnsTrace = {
+                    type: 'heatmap',
+                    x: ['Placeholder'],
+                    y: ['Placeholder'],
+                    z: [[0]],
+                    hovertemplate: 'Monthly Returns Example<extra></extra>',
+                };
+                Plotly.newPlot(
+                    'monthly-returns-heatmap',
+                    [monthlyReturnsTrace],
+                    {},
+                    { responsive: true, displayModeBar: false }
+                );
+            } catch (error) {
+                console.error('Error updating heatmaps:', error);
+            }
+        }
+
+        // Update trades table
+        function updateTradesTable(trades) {
+            const tradesTable =
+                document.getElementById('trades-table').getElementsByTagName('tbody')[0];
+            if (!tradesTable) return;
+
+            tradesTable.innerHTML = trades
+                .map((trade) => {
+                    const pnl =
+                        trade.type === 'SELL'
+                            ? trade.value - trade.commission
+                            : -(trade.value + trade.commission);
+                    return `
+            <tr>
+              <td>${new Date(trade.timestamp).toLocaleString()}</td>
+              <td><span class="badge bg-${trade.type === 'BUY' ? 'success' : 'danger'
+                        }">${trade.type}</span></td>
+              <td>${trade.price.toFixed(2)}</td>
+              <td>${trade.size.toFixed(4)}</td>
+              <td>${trade.value.toFixed(2)}</td>
+              <td>${trade.commission.toFixed(2)}</td>
+              <td class="${pnl >= 0 ? 'text-success' : 'text-danger'}">
+                ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+              </td>
+            </tr>
+          `;
+                })
+                .join('');
+        }
+
+        // Initialize tab events (e.g., re-layout Plotly on tab switch)
+        function initializeTabEvents() {
+            const tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabs.forEach((tab) => {
+                tab.addEventListener('shown.bs.tab', function (event) {
+                    const targetId = event.target
+                        .getAttribute('data-bs-target')
+                        .replace('#', '');
+                    if (targetId === 'heatmaps') {
+                        setTimeout(() => {
+                            const visibleHeatmaps = document.querySelectorAll(
+                                '.heatmap-section:not([style*="display: none"]) .heatmap-plot:not([style*="display: none"])'
+                            );
+                            visibleHeatmaps.forEach((container) => {
+                                if (container.data) {
+                                    Plotly.relayout(container.id, {
+                                        width: container.offsetWidth,
+                                        height: 300,
+                                    });
+                                }
+                            });
+                        }, 100);
+                    }
+                });
+            });
+        }
+
+        // Toggle between trade and returns heatmaps
+        function toggleHeatmapType(type) {
+            const tradeHeatmaps = document.getElementById('trade-heatmaps');
+            const returnsHeatmaps = document.getElementById('returns-heatmaps');
+            const tradeBtn = document.getElementById('trade-analysis-btn');
+            const returnsBtn = document.getElementById('returns-analysis-btn');
+
+            if (type === 'trade') {
+                tradeHeatmaps.style.display = 'block';
+                returnsHeatmaps.style.display = 'none';
+                tradeBtn.classList.add('active');
+                returnsBtn.classList.remove('active');
+            } else {
+                tradeHeatmaps.style.display = 'none';
+                returnsHeatmaps.style.display = 'block';
+                tradeBtn.classList.remove('active');
+                returnsBtn.classList.add('active');
+            }
+
+            // Force redraw of visible heatmaps
+            const visibleHeatmaps = document.querySelectorAll(
+                '.heatmap-section:not([style*="display: none"]) .heatmap-plot:not([style*="display: none"])'
+            );
+            visibleHeatmaps.forEach((container) => {
+                if (container.data) {
+                    Plotly.relayout(container.id, {
+                        width: container.offsetWidth,
+                        height: 300,
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+.results-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metric-title {
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <div class="actions">
+        <button class="btn btn-secondary" onclick="window.location.href='/'">Back to Strategies</button>
+        <button class="btn btn-primary" onclick="exportResults()">Export Results</button>
+    </div>
+
+    <div class="metrics-grid" id="metricsGrid">
+        <!-- Metrics will be dynamically added here -->
+    </div>
+
+    <div class="chart-container">
+        <div id="mainChart"></div>
+    </div>
+
+    <div class="chart-container">
+        <div id="tradeAnalysis"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load results from localStorage
+    const results = JSON.parse(localStorage.getItem('backtest_results'));
+    if (!results) {
+        alert('No backtest results found');
+        window.location.href = '/';
+        return;
+    }
+
+    // Display metrics
+    displayMetrics(results.metrics);
+
+    // Display charts
+    Plotly.newPlot('mainChart', JSON.parse(results.charts.main_chart));
+    Plotly.newPlot('tradeAnalysis', JSON.parse(results.charts.trade_analysis));
+});
+
+function displayMetrics(metrics) {
+    const grid = document.getElementById('metricsGrid');
+    
+    Object.entries(metrics).forEach(([key, value]) => {
+        const card = document.createElement('div');
+        card.className = 'metric-card';
+        card.innerHTML = `
+            <div class="metric-title">${formatMetricName(key)}</div>
+            <div class="metric-value">${value}</div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function formatMetricName(name) {
+    return name
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+function exportResults() {
+    const results = JSON.parse(localStorage.getItem('backtest_results'));
+    
+    fetch('/api/export_results', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(results)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backtest_results.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+}
+</script>
+{% endblock %} 
