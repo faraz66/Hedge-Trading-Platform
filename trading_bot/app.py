@@ -156,167 +156,57 @@ def create_app():
                     'parameters': {}
                 }
                 
-                # Add default parameters based on strategy type
-                if name == 'HedgingStrategy':
-                    strategy_info['parameters'] = {
-                        'hedge_threshold': {
-                            'type': 'float',
-                            'default': 0.02,
-                            'description': 'Price movement threshold to trigger hedge',
-                            'range': {'min': 0.01, 'max': 0.05, 'step': 0.005}
-                        },
-                        'risk_factor': {
-                            'type': 'float',
-                            'default': 1.0,
-                            'description': 'Risk adjustment factor for hedge positions',
-                            'range': {'min': 0.5, 'max': 2.0, 'step': 0.1}
-                        },
-                        'correlation_window': {
-                            'type': 'int',
-                            'default': 20,
-                            'description': 'Window for calculating correlations',
-                            'range': {'min': 10, 'max': 50, 'step': 5}
-                        },
-                        'volatility_window': {
-                            'type': 'int',
-                            'default': 14,
-                            'description': 'Window for calculating volatility',
-                            'range': {'min': 7, 'max': 21, 'step': 1}
-                        },
-                        'min_hedge_ratio': {
-                            'type': 'float',
-                            'default': 0.5,
-                            'description': 'Minimum hedge ratio',
-                            'range': {'min': 0.1, 'max': 1.0, 'step': 0.1}
-                        },
-                        'max_hedge_ratio': {
-                            'type': 'float',
-                            'default': 2.0,
-                            'description': 'Maximum hedge ratio',
-                            'range': {'min': 1.0, 'max': 5.0, 'step': 0.5}
+                # Try to create an instance to get parameters
+                try:
+                    if name == 'GridHedgeStrategy':
+                        # Special handling for GridHedgeStrategy to provide required parameters
+                        default_params = {
+                            'grid_levels': 5,       # Number of grid levels above and below current price
+                            'grid_spacing': 0.01,   # Price spacing between grid levels (1%)
+                            'position_size': 0.1,   # Base position size as fraction of balance
+                            'min_profit': 0.005,    # Minimum profit to close a grid position (0.5%)
+                            'max_positions': 10,    # Maximum number of open positions
+                            'size_multiplier': 1.0, # Multiplier for position size at each level
+                            'base_order_size': 0.01,# Base order size
+                            'hedge_ratio': 1.0,     # Ratio of hedge position size to main position
+                            'min_spread': 0.001,    # Minimum price spread to open positions
+                            'max_spread': 0.05,     # Maximum price spread to open positions
+                            'take_profit': 0.02,    # Take profit threshold
+                            'stop_loss': 0.01       # Stop loss threshold
                         }
-                    }
-                elif name == 'GridHedgeStrategy':
-                    # Create an instance to get actual parameters
-                    try:
-                        grid_hedge_strategy = strategy_class(symbol="BTCUSDT")
-                        actual_params = grid_hedge_strategy.get_parameters()
-                        logger.debug(f"Actual GridHedgeStrategy parameters: {actual_params}")
-                        
-                        # Parameter display mappings for frontend
+                        strategy_instance = strategy_class(symbol="BTCUSDT", params=default_params)
+                        logger.debug(f"Created GridHedgeStrategy instance with parameters: {default_params}")
+                        strategy_info['parameters'] = default_params
+                    else:
+                        # For other strategies, get parameters from the strategy instance
+                        strategy_instance = strategy_class(symbol="BTCUSDT")
+                        actual_params = strategy_instance.get_parameters()
+                        logger.debug(f"Actual {name} parameters: {actual_params}")
+                        strategy_info['parameters'] = actual_params
+                    
+                    strategy_list.append(strategy_info)
+                    logger.info(f"Successfully processed strategy: {name}")
+                except Exception as e:
+                    logger.error(f"Error creating {name} instance: {str(e)}")
+                    if name == 'GridHedgeStrategy':
+                        # Add default parameters for GridHedgeStrategy in case of error
                         strategy_info['parameters'] = {
-                            'grid_levels': {
-                                'type': 'int',
-                                'default': actual_params.get('grid_levels', 5),
-                                'description': 'Number of grid levels',
-                                'range': {'min': 3, 'max': 10, 'step': 1}
-                            },
-                            'grid_spacing': {
-                                'type': 'float',
-                                'default': actual_params.get('grid_spacing', 0.01),
-                                'description': 'Price spacing between grid levels',
-                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
-                            },
-                            'position_size': {
-                                'type': 'float',
-                                'default': actual_params.get('position_size', 0.1),
-                                'description': 'Base position size as fraction of balance',
-                                'range': {'min': 0.05, 'max': 0.2, 'step': 0.01}
-                            },
-                            'min_profit': {
-                                'type': 'float',
-                                'default': actual_params.get('min_profit', 0.005),
-                                'description': 'Minimum profit threshold for grid hedge strategy',
-                                'range': {'min': 0.001, 'max': 0.01, 'step': 0.001}
-                            }
+                            'grid_levels': 5,
+                            'grid_spacing': 0.01,
+                            'position_size': 0.1,
+                            'min_profit': 0.005,
+                            'max_positions': 10,
+                            'size_multiplier': 1.0,
+                            'base_order_size': 0.01,
+                            'hedge_ratio': 1.0,
+                            'min_spread': 0.001,
+                            'max_spread': 0.05,
+                            'take_profit': 0.02,
+                            'stop_loss': 0.01
                         }
-                    except Exception as e:
-                        logger.error(f"Error creating GridHedgeStrategy instance: {str(e)}")
-                        # Fallback to default values
-                        strategy_info['parameters'] = {
-                            'grid_levels': {
-                                'type': 'int',
-                                'default': 5,
-                                'description': 'Number of grid levels',
-                                'range': {'min': 3, 'max': 10, 'step': 1}
-                            },
-                            'grid_spacing': {
-                                'type': 'float',
-                                'default': 0.01,
-                                'description': 'Price spacing between grid levels',
-                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
-                            },
-                            'position_size': {
-                                'type': 'float',
-                                'default': 0.1,
-                                'description': 'Base position size as fraction of balance',
-                                'range': {'min': 0.05, 'max': 0.2, 'step': 0.01}
-                            },
-                            'min_profit': {
-                                'type': 'float',
-                                'default': 0.005,
-                                'description': 'Minimum profit threshold for grid hedge strategy',
-                                'range': {'min': 0.001, 'max': 0.01, 'step': 0.001}
-                            }
-                        }
-                elif name == 'GridStrategy':
-                    # Create an instance to get actual parameters
-                    try:
-                        grid_strategy = strategy_class(symbol="BTCUSDT")
-                        actual_params = grid_strategy.get_parameters()
-                        logger.debug(f"Actual GridStrategy parameters: {actual_params}")
-                        
-                        # Parameter display mappings for frontend
-                        strategy_info['parameters'] = {
-                            'grid_size': {
-                                'type': 'int',
-                                'default': actual_params.get('grid_size', 5),
-                                'description': 'Number of grid levels',
-                                'range': {'min': 3, 'max': 10, 'step': 1}
-                            },
-                            'grid_spacing': {
-                                'type': 'float',
-                                'default': actual_params.get('grid_spacing', 0.01),
-                                'description': 'Price spacing between grid levels',
-                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
-                            }
-                        }
-                    except Exception as e:
-                        logger.error(f"Error creating GridStrategy instance: {str(e)}")
-                        # Fallback to default values
-                        strategy_info['parameters'] = {
-                            'grid_size': {
-                                'type': 'int',
-                                'default': 5,
-                                'description': 'Number of grid levels',
-                                'range': {'min': 3, 'max': 10, 'step': 1}
-                            },
-                            'grid_spacing': {
-                                'type': 'float',
-                                'default': 0.01,
-                                'description': 'Price spacing between grid levels',
-                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
-                            }
-                        }
-                elif name == 'BollingerBreakoutStrategy':
-                    strategy_info['parameters'] = {
-                        'bb_period': {
-                            'type': 'int',
-                            'default': 20,
-                            'description': 'Bollinger Bands period',
-                            'range': {'min': 10, 'max': 50, 'step': 5}
-                        },
-                        'bb_std': {
-                            'type': 'float',
-                            'default': 2.0,
-                            'description': 'Bollinger Bands standard deviation',
-                            'range': {'min': 1.0, 'max': 3.0, 'step': 0.1}
-                        }
-                    }
-                
-                strategy_list.append(strategy_info)
-                logger.info(f"Successfully processed strategy: {name}")
-            
+                        strategy_list.append(strategy_info)
+                        logger.info(f"Successfully processed strategy: {name}")
+                    
             logger.info(f"Returning {len(strategy_list)} strategies")
             return jsonify({
                 'status': 'success',
@@ -372,34 +262,29 @@ def create_app():
                     temp_strategy = strategy_class(symbol="BTCUSDT", params=params)
                     logger.debug(f"Created HedgingStrategy instance with parameters: {params}")
                 elif strategy_name == 'GridHedgeStrategy':
-                    # Create a temporary instance with correct parameters
+                    # Create a temporary instance with correct parameters for GridHedgeStrategy
                     # First, get default parameters from class to ensure we have all required ones
                     params = {
-                        'grid_levels': 5,
-                        'grid_spacing': 0.01,
-                        'position_size': 0.1,
-                        'min_profit': 0.005,
-                        # Adding base class parameters that might be required
-                        'hedge_ratio': 1.0,
-                        'min_spread': 0.001,
-                        'max_spread': 0.05,
-                        'take_profit': 0.02,
-                        'stop_loss': 0.01
+                        'grid_levels': 5,       # Number of grid levels above and below current price
+                        'grid_spacing': 0.01,   # Price spacing between grid levels (1%)
+                        'position_size': 0.1,   # Base position size as fraction of balance
+                        'min_profit': 0.005,    # Minimum profit to close a grid position (0.5%)
+                        'max_positions': 10,    # Maximum number of open positions
+                        'size_multiplier': 1.0, # Multiplier for position size at each level
+                        'base_order_size': 0.01,# Base order size
+                        'hedge_ratio': 1.0,     # Ratio of hedge position size to main position
+                        'min_spread': 0.001,    # Minimum price spread to open positions
+                        'max_spread': 0.05,     # Maximum price spread to open positions
+                        'take_profit': 0.02,    # Take profit threshold
+                        'stop_loss': 0.01       # Stop loss threshold
                     }
                     # Update with provided parameters
                     params.update(parameters)
                     temp_strategy = strategy_class(symbol="BTCUSDT", params=params)
                     logger.debug(f"Created GridHedgeStrategy instance with parameters: {params}")
                 else:
-                    # Create a temporary instance to validate parameters
-                    try:
-                        # If the strategy requires a symbol parameter, provide a default one
-                        temp_strategy = strategy_class(symbol="BTCUSDT")
-                        logger.debug(f"Created temp strategy instance with symbol")
-                    except TypeError:
-                        # If symbol is not accepted, create without it
-                        temp_strategy = strategy_class()
-                        logger.debug(f"Created temp strategy instance without symbol")
+                    # For other strategies, use parameters as provided
+                    temp_strategy = strategy_class(symbol="BTCUSDT", params=parameters)
                 
                 # Get current parameters
                 current_params = temp_strategy.get_parameters()
@@ -556,7 +441,15 @@ def create_app():
                                             'grid_levels': 5,
                                             'grid_spacing': 0.01,
                                             'position_size': 0.1,
-                                            'min_profit': 0.005
+                                            'min_profit': 0.005,
+                                            'max_positions': 10,
+                                            'size_multiplier': 1.0,
+                                            'base_order_size': 0.01,
+                                            'hedge_ratio': 1.0,
+                                            'min_spread': 0.001,
+                                            'max_spread': 0.05,
+                                            'take_profit': 0.02,
+                                            'stop_loss': 0.01
                                         }
                             else:
                                 # For strategies that don't require a symbol

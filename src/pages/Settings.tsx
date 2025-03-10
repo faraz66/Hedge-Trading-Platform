@@ -12,28 +12,39 @@ import {
   useColorMode,
   Heading,
   Select,
+  InputGroup,
+  InputRightElement,
+  Icon,
 } from '@chakra-ui/react';
 import { useApp } from '../context/AppContext';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface SettingsFormData {
   apiKey: string;
   apiSecret: string;
+  exnessUsername: string;
+  exnessPassword: string;
   defaultTradingAmount: number;
   paperTrading: boolean;
   theme: string;
 }
 
 const Settings: React.FC = () => {
-  const { settings, updateSettings, isLoading } = useApp();
-  const { colorMode, toggleColorMode } = useColorMode();
+  const { colorMode } = useColorMode();
   const toast = useToast();
   const [formData, setFormData] = useState<SettingsFormData>({
     apiKey: '',
     apiSecret: '',
+    exnessUsername: '',
+    exnessPassword: '',
     defaultTradingAmount: 100,
-    paperTrading: true,
+    paperTrading: false,
     theme: 'light',
   });
+  
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [showExnessPassword, setShowExnessPassword] = useState(false);
 
   useEffect(() => {
     // Load settings from different categories
@@ -51,6 +62,8 @@ const Settings: React.FC = () => {
           setFormData({
             apiKey: exchangeData.settings.api_key || '',
             apiSecret: exchangeData.settings.api_secret || '',
+            exnessUsername: exchangeData.settings.exness_username || '',
+            exnessPassword: exchangeData.settings.exness_password || '',
             defaultTradingAmount: tradingData.settings.default_amount || 100,
             paperTrading: exchangeData.settings.paper_trading || false,
             theme: exchangeData.settings.theme || colorMode,
@@ -71,9 +84,11 @@ const Settings: React.FC = () => {
   }, [toast, colorMode]);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : type === 'number' ? parseFloat(value) : value,
@@ -87,6 +102,8 @@ const Settings: React.FC = () => {
       const exchangeSettings = {
         api_key: formData.apiKey,
         api_secret: formData.apiSecret,
+        exness_username: formData.exnessUsername,
+        exness_password: formData.exnessPassword,
         paper_trading: formData.paperTrading,
         theme: formData.theme,
       };
@@ -131,34 +148,86 @@ const Settings: React.FC = () => {
       <Heading mb={6}>Settings</Heading>
       <VStack spacing={6} align="stretch">
         <Box>
-          <Text fontSize="xl" fontWeight="bold" mb={4}>
-            API Configuration
+          <Text fontSize="xl" fontWeight="bold" mb={4} display="flex" alignItems="center">
+            <span style={{ marginRight: '8px' }}>⚙️</span> Binance Configuration
           </Text>
           <FormControl mb={4}>
             <FormLabel>API Key</FormLabel>
-            <Input
-              name="apiKey"
-              type="password"
-              value={formData.apiKey}
-              onChange={handleInputChange}
-              placeholder="Enter your API key"
-            />
+            <InputGroup>
+              <Input
+                name="apiKey"
+                type={showApiKey ? "text" : "password"}
+                value={formData.apiKey}
+                onChange={handleInputChange}
+                placeholder="Enter your Binance API key"
+              />
+              <InputRightElement>
+                <Icon
+                  as={showApiKey ? FaEyeSlash : FaEye}
+                  cursor="pointer"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                />
+              </InputRightElement>
+            </InputGroup>
           </FormControl>
           <FormControl mb={4}>
             <FormLabel>API Secret</FormLabel>
-            <Input
-              name="apiSecret"
-              type="password"
-              value={formData.apiSecret}
-              onChange={handleInputChange}
-              placeholder="Enter your API secret"
-            />
+            <InputGroup>
+              <Input
+                name="apiSecret"
+                type={showApiSecret ? "text" : "password"}
+                value={formData.apiSecret}
+                onChange={handleInputChange}
+                placeholder="Enter your Binance API secret"
+              />
+              <InputRightElement>
+                <Icon
+                  as={showApiSecret ? FaEyeSlash : FaEye}
+                  cursor="pointer"
+                  onClick={() => setShowApiSecret(!showApiSecret)}
+                />
+              </InputRightElement>
+            </InputGroup>
           </FormControl>
         </Box>
 
         <Box>
-          <Text fontSize="xl" fontWeight="bold" mb={4}>
-            Trading Settings
+          <Text fontSize="xl" fontWeight="bold" mb={4} display="flex" alignItems="center">
+            <span style={{ marginRight: '8px' }}>👤</span> Exness Configuration
+          </Text>
+          <FormControl mb={4}>
+            <FormLabel>Username</FormLabel>
+            <Input
+              name="exnessUsername"
+              value={formData.exnessUsername}
+              onChange={handleInputChange}
+              placeholder="Enter your Exness username"
+            />
+          </FormControl>
+          <FormControl mb={4}>
+            <FormLabel>Password</FormLabel>
+            <InputGroup>
+              <Input
+                name="exnessPassword"
+                type={showExnessPassword ? "text" : "password"}
+                value={formData.exnessPassword}
+                onChange={handleInputChange}
+                placeholder="Enter your Exness password"
+              />
+              <InputRightElement>
+                <Icon
+                  as={showExnessPassword ? FaEyeSlash : FaEye}
+                  cursor="pointer"
+                  onClick={() => setShowExnessPassword(!showExnessPassword)}
+                />
+              </InputRightElement>
+            </InputGroup>
+          </FormControl>
+        </Box>
+
+        <Box>
+          <Text fontSize="xl" fontWeight="bold" mb={4} display="flex" alignItems="center">
+            <span style={{ marginRight: '8px' }}>⚡</span> Trading Settings
           </Text>
           <FormControl display="flex" alignItems="center" mb={4}>
             <FormLabel mb="0">Paper Trading</FormLabel>
@@ -170,24 +239,7 @@ const Settings: React.FC = () => {
           </FormControl>
         </Box>
 
-        <Box>
-          <Text fontSize="xl" fontWeight="bold" mb={4}>
-            Interface Settings
-          </Text>
-          <FormControl mb={4}>
-            <FormLabel>Theme</FormLabel>
-            <Select
-              name="theme"
-              value={formData.theme}
-              onChange={handleInputChange}
-            >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Button colorScheme="blue" onClick={handleSubmit}>
+        <Button colorScheme="blue" onClick={handleSubmit} width="100%">
           Save Settings
         </Button>
       </VStack>
