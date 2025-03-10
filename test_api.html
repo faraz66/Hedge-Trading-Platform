@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HedgeBot API Test</title>
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost:5002/api/strategies');
+                const data = await response.json();
+                document.getElementById('results').innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>HedgeBot API Test</h1>
+    <button onclick="testAPI()">Test Strategies API</button>
+    <pre id="results"></pre>
+</body>
+</html> 
