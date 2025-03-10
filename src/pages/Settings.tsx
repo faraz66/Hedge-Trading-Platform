@@ -52,23 +52,23 @@ const Settings: React.FC = () => {
             apiKey: exchangeData.settings.api_key || '',
             apiSecret: exchangeData.settings.api_secret || '',
             defaultTradingAmount: tradingData.settings.default_amount || 100,
-            paperTrading: exchangeData.settings.paper_trading || true,
-            theme: exchangeData.settings.theme || 'light',
+            paperTrading: exchangeData.settings.paper_trading || false,
+            theme: exchangeData.settings.theme || colorMode,
           });
         }
       } catch (error) {
         toast({
-          title: 'Error',
-          description: 'Failed to load settings',
+          title: 'Error loading settings',
+          description: 'Failed to load settings. Please try again.',
           status: 'error',
-          duration: 3000,
+          duration: 5000,
           isClosable: true,
         });
       }
     };
 
     loadSettings();
-  }, [toast]);
+  }, [toast, colorMode]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement>
