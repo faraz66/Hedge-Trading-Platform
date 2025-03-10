@@ -1,13 +1,35 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
+import { UserConfig } from 'vite'
 
-// https://vite.dev/config/
-export default defineConfig({
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+// https://vitejs.dev/config/
+const config: UserConfig = {
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': resolve(__dirname, './src'),
     },
   },
-})
+  server: {
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5002',
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
+      '/run_backtest': {
+        target: 'http://localhost:5002',
+        changeOrigin: true,
+      },
+    }
+  }
+}
+
+export default defineConfig(config) 
