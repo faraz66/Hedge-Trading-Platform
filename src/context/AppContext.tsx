@@ -39,9 +39,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const api = axios.create({
     baseURL: 'http://localhost:5002/api',
+    timeout: 10000,
     headers: {
       'Content-Type': 'application/json',
-    },
+    }
   });
 
   const fetchStrategies = async () => {

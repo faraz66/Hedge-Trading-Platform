@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Backtest from './pages/Backtest';
 import Strategies from './pages/Strategies';
 import Settings from './pages/Settings';
+import Orders from './pages/Orders';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/backtest" element={<Backtest />} />
             <Route path="/strategies" element={<Strategies />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>

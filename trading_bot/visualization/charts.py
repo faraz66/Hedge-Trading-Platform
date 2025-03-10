@@ -6,7 +6,8 @@ from typing import Dict, List, Any
 def create_enhanced_charts(
     historical_data: pd.DataFrame,
     equity_df: pd.DataFrame,
-    trades: List[Dict[str, Any]]
+    trades: List[Dict[str, Any]],
+    timeframe: str = '1h'
 ) -> Dict[str, Any]:
     """Create enhanced interactive charts for backtest visualization"""
     
@@ -15,7 +16,7 @@ def create_enhanced_charts(
         rows=2, cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
-        subplot_titles=('Price and Trades', 'Portfolio Value'),
+        subplot_titles=(f'Price and Trades ({timeframe})', 'Portfolio Value'),
         row_heights=[0.7, 0.3]
     )
 

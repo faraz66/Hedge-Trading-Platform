@@ -1,50 +1,118 @@
-# React + TypeScript + Vite
+# HedgeBot
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A cryptocurrency trading bot with customizable strategies and backtesting capabilities.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Multiple trading strategies (Grid Trading, Bollinger Bands)
+- Real-time market data integration
+- Strategy backtesting
+- Web-based dashboard
+- Parameter optimization
+- Paper trading support
 
-## Expanding the ESLint configuration
+## Directory Structure
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```
+hedgebot/
+├── docs/                    # Documentation
+│   └── strategies/         # Trading strategy documentation
+├── scripts/                # Utility scripts
+├── src/                    # Frontend React application
+│   ├── components/        # Reusable UI components
+│   ├── hooks/            # Custom React hooks
+│   ├── layouts/          # Page layouts
+│   ├── pages/           # Page components
+│   ├── services/        # API services
+│   ├── types/           # TypeScript type definitions
+│   └── utils/           # Utility functions
+├── trading_bot/           # Backend Python application
+│   ├── api/             # API endpoints
+│   ├── core/            # Core trading logic
+│   ├── strategies/      # Trading strategies
+│   ├── backtesting/    # Backtesting engine
+│   └── exchange/       # Exchange integrations
+└── config/              # Environment configurations
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Prerequisites
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+- Python 3.8+
+- Node.js 16+
+- npm 7+
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+## Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/hedgebot.git
+   cd hedgebot
+   ```
+
+2. Install Python dependencies:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
+
+4. Create a `.env` file:
+   ```
+   EXCHANGE_API_KEY=your_api_key
+   EXCHANGE_SECRET_KEY=your_secret_key
+   ```
+
+## Running the Application
+
+Start both backend and frontend:
+```bash
+npm run start
 ```
+
+Or start them separately:
+```bash
+# Backend
+npm run start:backend
+
+# Frontend
+npm run start:frontend
+```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:5002
+
+## Development
+
+- Run tests: `npm test`
+- Format code: `npm run format`
+- Lint code: `npm run lint`
+- Clean build files: `npm run clean`
+
+## Configuration
+
+- Development configuration: `config/development/config.json`
+- Production configuration: `config/production/config.json`
+
+## Trading Strategies
+
+See the `docs/strategies` directory for detailed documentation on each trading strategy:
+- Grid Trading Strategy
+- Bollinger Bands Strategy
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

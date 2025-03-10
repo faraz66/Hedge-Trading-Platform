@@ -142,7 +142,7 @@ export default function Backtest() {
       >
         <HStack spacing={2} color="white">
           <Icon as={FiTrendingUp} />
-          <Text fontWeight="medium">Advanced Grid Strategy Backtester</Text>
+          <Text fontWeight="medium">Strategy Backtester</Text>
         </HStack>
       </Box>
 

@@ -1,4 +1,4 @@
-from .base_strategy import BaseStrategy
+from ..core.strategy import BaseStrategy
 from typing import Dict, Any, List
 import pandas as pd
 
@@ -12,8 +12,8 @@ class BaseHedgeStrategy(BaseStrategy):
     def validate_parameters(self) -> None:
         """Validate strategy parameters."""
         required_params = self.get_required_parameters()
-        if not all(param in self._params for param in required_params):
-            missing = [p for p in required_params if p not in self._params]
+        if not all(param in self.parameters for param in required_params):
+            missing = [p for p in required_params if p not in self.parameters]
             raise ValueError(f"Missing required parameters: {', '.join(missing)}")
     
     def get_required_parameters(self) -> List[str]:
@@ -63,7 +63,7 @@ class BaseHedgeStrategy(BaseStrategy):
     def calculate_position_sizes(self, price: float, balance: float) -> Dict[str, float]:
         """Calculate position sizes based on available balance and hedge ratio."""
         base_size = balance * 0.95  # Use 95% of available balance
-        hedge_size = base_size * self._params.get('hedge_ratio', 1.0)
+        hedge_size = base_size * self.parameters.get('hedge_ratio', 1.0)
         
         return {
             'base_size': base_size,
@@ -80,4 +80,15 @@ class BaseHedgeStrategy(BaseStrategy):
     @property
     def required_indicators(self) -> List[str]:
         """Get list of required technical indicators."""
-        return ['sma_20', 'bb_upper', 'bb_lower', 'atr'] 
+        return ['sma_20', 'bb_upper', 'bb_lower', 'atr']
+        
+    def analyze(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze market data and return trading signals.
+        This is a base implementation that should be overridden by subclasses.
+        """
+        # This is a placeholder implementation
+        return {
+            'action': 'hold',
+            'reason': 'Base hedge strategy does not implement specific trading logic'
+        } 

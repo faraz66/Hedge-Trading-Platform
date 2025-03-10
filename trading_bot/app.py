@@ -2,11 +2,13 @@ import os
 import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from .core.strategy import StrategyRegistry
-from .strategies.grid_strategy import GridStrategy
-from .strategies.bollinger_breakout_strategy import BollingerBreakoutStrategy
-from .backtesting import run_backtest
-from .config import load_config, save_config
+from trading_bot.core.strategy import StrategyRegistry
+from trading_bot.strategies.grid_strategy import GridStrategy
+from trading_bot.strategies.bollinger_breakout_strategy import BollingerBreakoutStrategy
+from trading_bot.strategies import AVAILABLE_STRATEGIES
+from trading_bot.backtesting import run_backtest
+from trading_bot.config import load_config, save_config
+import argparse
 
 # Configure logging
 logging.basicConfig(
@@ -52,10 +54,10 @@ def create_app():
     
     # Register strategies
     logger.info("Registering strategies...")
-    if GridStrategy not in StrategyRegistry._strategies.values():
-        StrategyRegistry.register(GridStrategy)
-    if BollingerBreakoutStrategy not in StrategyRegistry._strategies.values():
-        StrategyRegistry.register(BollingerBreakoutStrategy)
+    # Register all available strategies from the AVAILABLE_STRATEGIES dictionary
+    for strategy_name, strategy_class in AVAILABLE_STRATEGIES.items():
+        if strategy_class not in StrategyRegistry._strategies.values():
+            StrategyRegistry.register(strategy_class)
     logger.info(f"Registered strategies: {list(StrategyRegistry._strategies.keys())}")
     
     @app.route('/run_backtest', methods=['POST'])
@@ -86,10 +88,23 @@ def create_app():
 
             # Create strategy instance
             try:
-                strategy = strategy_class(
-                    symbol=data['symbol'],
-                    params=data.get('strategyParams', {})
-                )
+                # Check if the strategy requires a symbol parameter
+                import inspect
+                sig = inspect.signature(strategy_class.__init__)
+                params = list(sig.parameters.keys())
+                
+                # Create the strategy instance with the appropriate parameters
+                if 'symbol' in params:
+                    strategy = strategy_class(
+                        symbol=data['symbol'],
+                        params=data.get('strategyParams', {})
+                    )
+                else:
+                    # For strategies that don't require a symbol
+                    strategy = strategy_class()
+                    # Set parameters if the strategy has a set_parameters method
+                    if hasattr(strategy, 'set_parameters') and callable(getattr(strategy, 'set_parameters')):
+                        strategy.set_parameters(data.get('strategyParams', {}))
             except ValueError as e:
                 return jsonify({
                     'status': 'error',
@@ -125,44 +140,184 @@ def create_app():
     @app.route('/api/strategies', methods=['GET'])
     def list_strategies():
         try:
-            logger.debug("Getting available strategies...")
+            logger.info("Getting available strategies...")
             strategies = StrategyRegistry.list_strategies()
-            logger.debug(f"Found strategies: {list(strategies.keys())}")
+            logger.info(f"Found strategies: {list(strategies.keys())}")
             
+            # Create a simplified list of strategies
             strategy_list = []
             for name, strategy_class in strategies.items():
-                logger.debug(f"Processing strategy: {name}")
-                try:
-                    # Create a temporary instance to get parameter ranges
-                    logger.debug(f"Creating instance of {name}")
-                    temp_strategy = strategy_class()
-                    logger.debug(f"Getting parameter ranges for {name}")
-                    param_ranges = temp_strategy.get_parameter_ranges()
-                    logger.debug(f"Parameter ranges for {name}: {param_ranges}")
-                    
-                    strategy_info = {
-                        'name': name,
-                        'description': strategy_class.__doc__ or f'Implementation of {name}',
-                        'parameters': {
-                            param_name: {
-                                'type': 'float' if isinstance(value, float) else 'int',
-                                'default': value,
-                                'description': param_ranges[param_name].get('description', f'{param_name} parameter'),
-                                'range': {
-                                    'min': param_ranges[param_name]['min'],
-                                    'max': param_ranges[param_name]['max'],
-                                    'step': param_ranges[param_name].get('step', 1 if isinstance(value, int) else 0.1)
-                                }
-                            }
-                            for param_name, value in strategy_class.default_parameters.items()
+                logger.info(f"Processing strategy: {name}")
+                
+                # Create a basic strategy info object
+                strategy_info = {
+                    'name': name,
+                    'description': strategy_class.__doc__ or f'Implementation of {name}',
+                    'parameters': {}
+                }
+                
+                # Add default parameters based on strategy type
+                if name == 'HedgingStrategy':
+                    strategy_info['parameters'] = {
+                        'hedge_threshold': {
+                            'type': 'float',
+                            'default': 0.02,
+                            'description': 'Price movement threshold to trigger hedge',
+                            'range': {'min': 0.01, 'max': 0.05, 'step': 0.005}
+                        },
+                        'risk_factor': {
+                            'type': 'float',
+                            'default': 1.0,
+                            'description': 'Risk adjustment factor for hedge positions',
+                            'range': {'min': 0.5, 'max': 2.0, 'step': 0.1}
+                        },
+                        'correlation_window': {
+                            'type': 'int',
+                            'default': 20,
+                            'description': 'Window for calculating correlations',
+                            'range': {'min': 10, 'max': 50, 'step': 5}
+                        },
+                        'volatility_window': {
+                            'type': 'int',
+                            'default': 14,
+                            'description': 'Window for calculating volatility',
+                            'range': {'min': 7, 'max': 21, 'step': 1}
+                        },
+                        'min_hedge_ratio': {
+                            'type': 'float',
+                            'default': 0.5,
+                            'description': 'Minimum hedge ratio',
+                            'range': {'min': 0.1, 'max': 1.0, 'step': 0.1}
+                        },
+                        'max_hedge_ratio': {
+                            'type': 'float',
+                            'default': 2.0,
+                            'description': 'Maximum hedge ratio',
+                            'range': {'min': 1.0, 'max': 5.0, 'step': 0.5}
                         }
                     }
-                    strategy_list.append(strategy_info)
-                    logger.debug(f"Successfully processed strategy: {name}")
-                except Exception as e:
-                    logger.error(f"Error processing strategy {name}: {str(e)}", exc_info=True)
+                elif name == 'GridHedgeStrategy':
+                    # Create an instance to get actual parameters
+                    try:
+                        grid_hedge_strategy = strategy_class(symbol="BTCUSDT")
+                        actual_params = grid_hedge_strategy.get_parameters()
+                        logger.debug(f"Actual GridHedgeStrategy parameters: {actual_params}")
+                        
+                        # Parameter display mappings for frontend
+                        strategy_info['parameters'] = {
+                            'grid_levels': {
+                                'type': 'int',
+                                'default': actual_params.get('grid_levels', 5),
+                                'description': 'Number of grid levels',
+                                'range': {'min': 3, 'max': 10, 'step': 1}
+                            },
+                            'grid_spacing': {
+                                'type': 'float',
+                                'default': actual_params.get('grid_spacing', 0.01),
+                                'description': 'Price spacing between grid levels',
+                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
+                            },
+                            'position_size': {
+                                'type': 'float',
+                                'default': actual_params.get('position_size', 0.1),
+                                'description': 'Base position size as fraction of balance',
+                                'range': {'min': 0.05, 'max': 0.2, 'step': 0.01}
+                            },
+                            'min_profit': {
+                                'type': 'float',
+                                'default': actual_params.get('min_profit', 0.005),
+                                'description': 'Minimum profit threshold for grid hedge strategy',
+                                'range': {'min': 0.001, 'max': 0.01, 'step': 0.001}
+                            }
+                        }
+                    except Exception as e:
+                        logger.error(f"Error creating GridHedgeStrategy instance: {str(e)}")
+                        # Fallback to default values
+                        strategy_info['parameters'] = {
+                            'grid_levels': {
+                                'type': 'int',
+                                'default': 5,
+                                'description': 'Number of grid levels',
+                                'range': {'min': 3, 'max': 10, 'step': 1}
+                            },
+                            'grid_spacing': {
+                                'type': 'float',
+                                'default': 0.01,
+                                'description': 'Price spacing between grid levels',
+                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
+                            },
+                            'position_size': {
+                                'type': 'float',
+                                'default': 0.1,
+                                'description': 'Base position size as fraction of balance',
+                                'range': {'min': 0.05, 'max': 0.2, 'step': 0.01}
+                            },
+                            'min_profit': {
+                                'type': 'float',
+                                'default': 0.005,
+                                'description': 'Minimum profit threshold for grid hedge strategy',
+                                'range': {'min': 0.001, 'max': 0.01, 'step': 0.001}
+                            }
+                        }
+                elif name == 'GridStrategy':
+                    # Create an instance to get actual parameters
+                    try:
+                        grid_strategy = strategy_class(symbol="BTCUSDT")
+                        actual_params = grid_strategy.get_parameters()
+                        logger.debug(f"Actual GridStrategy parameters: {actual_params}")
+                        
+                        # Parameter display mappings for frontend
+                        strategy_info['parameters'] = {
+                            'grid_size': {
+                                'type': 'int',
+                                'default': actual_params.get('grid_size', 5),
+                                'description': 'Number of grid levels',
+                                'range': {'min': 3, 'max': 10, 'step': 1}
+                            },
+                            'grid_spacing': {
+                                'type': 'float',
+                                'default': actual_params.get('grid_spacing', 0.01),
+                                'description': 'Price spacing between grid levels',
+                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
+                            }
+                        }
+                    except Exception as e:
+                        logger.error(f"Error creating GridStrategy instance: {str(e)}")
+                        # Fallback to default values
+                        strategy_info['parameters'] = {
+                            'grid_size': {
+                                'type': 'int',
+                                'default': 5,
+                                'description': 'Number of grid levels',
+                                'range': {'min': 3, 'max': 10, 'step': 1}
+                            },
+                            'grid_spacing': {
+                                'type': 'float',
+                                'default': 0.01,
+                                'description': 'Price spacing between grid levels',
+                                'range': {'min': 0.005, 'max': 0.02, 'step': 0.001}
+                            }
+                        }
+                elif name == 'BollingerBreakoutStrategy':
+                    strategy_info['parameters'] = {
+                        'bb_period': {
+                            'type': 'int',
+                            'default': 20,
+                            'description': 'Bollinger Bands period',
+                            'range': {'min': 10, 'max': 50, 'step': 5}
+                        },
+                        'bb_std': {
+                            'type': 'float',
+                            'default': 2.0,
+                            'description': 'Bollinger Bands standard deviation',
+                            'range': {'min': 1.0, 'max': 3.0, 'step': 0.1}
+                        }
+                    }
+                
+                strategy_list.append(strategy_info)
+                logger.info(f"Successfully processed strategy: {name}")
             
-            logger.debug(f"Returning {len(strategy_list)} strategies")
+            logger.info(f"Returning {len(strategy_list)} strategies")
             return jsonify({
                 'status': 'success',
                 'strategies': strategy_list
@@ -193,24 +348,98 @@ def create_app():
             try:
                 # Get the strategy class
                 strategy_class = StrategyRegistry.get_strategy(strategy_name)
+                logger.debug(f"Found strategy class: {strategy_class.__name__}")
                 
-                # Create a temporary instance to validate parameters
-                temp_strategy = strategy_class()
-                param_ranges = temp_strategy.get_parameter_ranges()
+                # Special handling for strategies with complex inheritance
+                if strategy_name == 'HedgingStrategy':
+                    # Create a temporary instance with correct parameters
+                    # First, get default parameters from class to ensure we have all required ones
+                    params = {
+                        'hedge_threshold': 0.02,
+                        'risk_factor': 1.0,
+                        'correlation_window': 20,
+                        'volatility_window': 14,
+                        'min_hedge_ratio': 0.5,
+                        'max_hedge_ratio': 2.0,
+                        'hedge_ratio': 1.0,
+                        'min_spread': 0.001,
+                        'max_spread': 0.05,
+                        'take_profit': 0.02,
+                        'stop_loss': 0.01
+                    }
+                    # Update with provided parameters
+                    params.update(parameters)
+                    temp_strategy = strategy_class(symbol="BTCUSDT", params=params)
+                    logger.debug(f"Created HedgingStrategy instance with parameters: {params}")
+                elif strategy_name == 'GridHedgeStrategy':
+                    # Create a temporary instance with correct parameters
+                    # First, get default parameters from class to ensure we have all required ones
+                    params = {
+                        'grid_levels': 5,
+                        'grid_spacing': 0.01,
+                        'position_size': 0.1,
+                        'min_profit': 0.005,
+                        # Adding base class parameters that might be required
+                        'hedge_ratio': 1.0,
+                        'min_spread': 0.001,
+                        'max_spread': 0.05,
+                        'take_profit': 0.02,
+                        'stop_loss': 0.01
+                    }
+                    # Update with provided parameters
+                    params.update(parameters)
+                    temp_strategy = strategy_class(symbol="BTCUSDT", params=params)
+                    logger.debug(f"Created GridHedgeStrategy instance with parameters: {params}")
+                else:
+                    # Create a temporary instance to validate parameters
+                    try:
+                        # If the strategy requires a symbol parameter, provide a default one
+                        temp_strategy = strategy_class(symbol="BTCUSDT")
+                        logger.debug(f"Created temp strategy instance with symbol")
+                    except TypeError:
+                        # If symbol is not accepted, create without it
+                        temp_strategy = strategy_class()
+                        logger.debug(f"Created temp strategy instance without symbol")
                 
-                # Validate parameters against ranges - REMOVED validation
+                # Get current parameters
+                current_params = temp_strategy.get_parameters()
+                logger.debug(f"Current parameters: {current_params}")
+                
+                # Parameter name mappings for backward compatibility
+                parameter_mappings = {
+                    'grid_levels': 'grid_size',
+                }
+                
+                # Create a copy of parameters with mapped names
+                mapped_parameters = {}
                 for param_name, value in parameters.items():
-                    if param_name not in temp_strategy.get_parameters():
+                    # If a mapping exists, use the mapped name instead
+                    mapped_name = parameter_mappings.get(param_name, param_name)
+                    mapped_parameters[mapped_name] = value
+                    logger.debug(f"Mapped parameter: {param_name} -> {mapped_name}")
+                
+                # Check if parameters exist after mapping
+                for param_name in mapped_parameters.keys():
+                    if param_name not in current_params and strategy_name not in ['HedgingStrategy', 'GridHedgeStrategy']:  # Skip validation for special cases
+                        logger.error(f"Unknown parameter: {param_name}")
                         return jsonify({
                             'status': 'error',
                             'message': f'Unknown parameter: {param_name}'
                         }), 400
-                    
-                    # No range validation - accept any value
                 
                 # Update the default parameters in the strategy class
-                for param_name, value in parameters.items():
-                    strategy_class.default_parameters[param_name] = value
+                if hasattr(strategy_class, 'default_parameters'):
+                    logger.debug(f"Updating default_parameters in class")
+                    for param_name, value in mapped_parameters.items():
+                        strategy_class.default_parameters[param_name] = value
+                        logger.debug(f"Updated {param_name} = {value}")
+                else:
+                    # If the strategy doesn't have default_parameters, create it
+                    logger.debug(f"Creating default_parameters for class")
+                    strategy_class.default_parameters = current_params.copy()
+                    for param_name, value in mapped_parameters.items():
+                        strategy_class.default_parameters[param_name] = value
+                        logger.debug(f"Set {param_name} = {value}")
                 
                 logger.info(f"Successfully updated parameters for strategy: {strategy_name}")
                 return jsonify({
@@ -224,7 +453,7 @@ def create_app():
                 return jsonify({
                     'status': 'error',
                     'message': str(e)
-                }), 404
+                }), 400  # Change to 400 instead of 404 for validation errors
                 
         except Exception as e:
             logger.error(f"Error updating strategy parameters: {str(e)}", exc_info=True)
@@ -284,18 +513,73 @@ def create_app():
                 backtest_settings = config.get('backtest', {})
                 strategies = StrategyRegistry.list_strategies()
                 
+                strategy_info = []
+                for name, strategy_class in strategies.items():
+                    try:
+                        logger.info(f"Processing strategy for backtest: {name}")
+                        
+                        # Create a basic strategy info object
+                        strategy_info_obj = {
+                            'name': name,
+                            'description': strategy_class.__doc__ or f'Implementation of {name}',
+                            'parameters': {},
+                            'parameter_ranges': {}
+                        }
+                        
+                        # Try to get parameters from class or instance
+                        try:
+                            # Check if the strategy requires a symbol parameter
+                            import inspect
+                            sig = inspect.signature(strategy_class.__init__)
+                            params = list(sig.parameters.keys())
+                            
+                            # If the strategy requires a symbol parameter, provide a default one
+                            if 'symbol' in params:
+                                try:
+                                    temp_strategy = strategy_class(symbol='BTC/USDT')
+                                    strategy_info_obj['parameters'] = temp_strategy.get_parameters()
+                                    strategy_info_obj['parameter_ranges'] = temp_strategy.get_parameter_ranges()
+                                except Exception as e:
+                                    logger.warning(f"Could not instantiate {name} with symbol: {str(e)}")
+                                    # Use default parameters from the API endpoint
+                                    if name == 'HedgingStrategy':
+                                        strategy_info_obj['parameters'] = {
+                                            'hedge_threshold': 0.02,
+                                            'risk_factor': 1.0,
+                                            'correlation_window': 20,
+                                            'volatility_window': 14,
+                                            'min_hedge_ratio': 0.5,
+                                            'max_hedge_ratio': 2.0
+                                        }
+                                    elif name == 'GridHedgeStrategy':
+                                        strategy_info_obj['parameters'] = {
+                                            'grid_levels': 5,
+                                            'grid_spacing': 0.01,
+                                            'position_size': 0.1,
+                                            'min_profit': 0.005
+                                        }
+                            else:
+                                # For strategies that don't require a symbol
+                                try:
+                                    temp_strategy = strategy_class()
+                                    if hasattr(temp_strategy, 'get_parameters'):
+                                        strategy_info_obj['parameters'] = temp_strategy.get_parameters()
+                                    if hasattr(temp_strategy, 'get_parameter_ranges'):
+                                        strategy_info_obj['parameter_ranges'] = temp_strategy.get_parameter_ranges()
+                                except Exception as e:
+                                    logger.warning(f"Could not instantiate {name}: {str(e)}")
+                        except Exception as e:
+                            logger.warning(f"Error getting parameters for {name}: {str(e)}")
+                        
+                        strategy_info.append(strategy_info_obj)
+                        logger.info(f"Successfully processed strategy for backtest: {name}")
+                    except Exception as e:
+                        logger.error(f"Error processing strategy {name} for backtest settings: {str(e)}", exc_info=True)
+                
                 return jsonify({
                     'status': 'success',
                     'settings': backtest_settings,
-                    'strategies': [
-                        {
-                            'name': name,
-                            'description': strategy_class.description if hasattr(strategy_class, 'description') else '',
-                            'parameters': strategy_class.default_parameters if hasattr(strategy_class, 'default_parameters') else {},
-                            'parameter_ranges': strategy_class.get_parameter_ranges() if hasattr(strategy_class, 'get_parameter_ranges') else {}
-                        }
-                        for name, strategy_class in strategies.items()
-                    ]
+                    'strategies': strategy_info
                 })
             
             new_settings = request.json
@@ -318,6 +602,11 @@ def create_app():
     return app
 
 if __name__ == '__main__':
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Start the trading bot server')
+    parser.add_argument('--port', type=int, default=5002, help='Port to run the server on')
+    args = parser.parse_args()
+    
     app = create_app()
-    logger.info("Starting Flask application...")
-    app.run(host='127.0.0.1', port=5002, debug=True) 
+    logger.info(f"Starting Flask application on port {args.port}...")
+    app.run(host='127.0.0.1', port=args.port, debug=True) 

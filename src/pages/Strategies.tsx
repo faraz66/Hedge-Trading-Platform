@@ -48,9 +48,10 @@ import { FiEdit, FiSave, FiInfo, FiChevronRight, FiDollarSign, FiClock, FiPercen
 import { useApp } from '../context/AppContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Strategy, StrategyParameter } from '@/types/backtest';
+import axios from 'axios';
 
 const Strategies: React.FC = () => {
-  const { strategies, settings, refreshStrategies } = useApp();
+  const { strategies, settings, refreshStrategies, isLoading } = useApp();
   const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const headerBg = useColorModeValue('gray.50', 'gray.800');
@@ -74,7 +75,18 @@ const Strategies: React.FC = () => {
     if (!isSaving) {
       setIsSaving(false);
       onClose();
-      navigate('/strategies', { replace: true });
+      
+      // Check if the user came from the backtest page
+      const params = new URLSearchParams(location.search);
+      const fromBacktest = params.get('from') === 'backtest';
+      
+      if (fromBacktest) {
+        // Redirect back to the backtest page
+        navigate('/backtest', { replace: true });
+      } else {
+        // Just clear the edit parameter
+        navigate('/strategies', { replace: true });
+      }
     }
   };
 
@@ -82,7 +94,18 @@ const Strategies: React.FC = () => {
   const forceCloseModal = () => {
     setIsSaving(false);
     onClose();
-    navigate('/strategies', { replace: true });
+    
+    // Check if the user came from the backtest page
+    const params = new URLSearchParams(location.search);
+    const fromBacktest = params.get('from') === 'backtest';
+    
+    if (fromBacktest) {
+      // Redirect back to the backtest page
+      navigate('/backtest', { replace: true });
+    } else {
+      // Just clear the edit parameter
+      navigate('/strategies', { replace: true });
+    }
   };
 
   // Check for edit query parameter
@@ -164,47 +187,61 @@ const Strategies: React.FC = () => {
       console.log("Saving parameters for strategy:", selectedStrategy.name);
       console.log("Parameters:", editedParams);
       
-      // Make the actual API call to update strategy parameters
-      const response = await fetch('http://localhost:5002/api/strategies/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
-      
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        // Refresh strategies to get updated data
-        if (refreshStrategies) {
-          await refreshStrategies();
+      // Make the actual API call to update strategy parameters using axios
+      try {
+        const response = await axios.post('http://localhost:5002/api/strategies/update', updateData);
+        
+        if (response.data.status === 'success') {
+          // Refresh strategies to get updated data
+          if (refreshStrategies) {
+            await refreshStrategies();
+          }
+          
+          toast({
+            title: "Parameters saved",
+            description: `Strategy ${selectedStrategy.name} parameters have been updated successfully.`,
+            status: "success",
+            duration: 3000,
+            isClosable: true,
+          });
+          
+          // Force close the modal
+          forceCloseModal();
+          
+          // Return early to avoid the finally block
+          return;
+        } else {
+          throw new Error(response.data.message || 'Failed to update strategy parameters');
+        }
+      } catch (error: any) {
+        console.error("Error saving parameters:", error);
+        
+        // Display detailed error information
+        let errorMessage = "Unknown error occurred";
+        
+        if (error.response) {
+          console.log("Error response data:", error.response.data);
+          errorMessage = `Server error (${error.response.status}): ${error.response.data.message || 'Unknown server error'}`;
+        } else if (error.request) {
+          errorMessage = "No response from server. Please check if the server is running.";
+        } else {
+          errorMessage = error.message || "Error preparing the request";
         }
         
         toast({
-          title: "Parameters saved",
-          description: `Strategy ${selectedStrategy.name} parameters have been updated.`,
-          status: "success",
-          duration: 3000,
+          title: "Error saving parameters",
+          description: errorMessage,
+          status: "error",
+          duration: 5000,
           isClosable: true,
         });
         
-        // Force close the modal
-        forceCloseModal();
-        
-        // Return early to avoid the finally block
-        return;
-      } else {
-        throw new Error(data.message || 'Failed to update strategy parameters');
+        // Fall back to client-side update
+        handleSaveParamsFallback();
       }
     } catch (error) {
-      console.error("Error saving parameters:", error);
-      
-      // If the API call fails, try the fallback
-      handleSaveParamsFallback();
+      console.error("Unexpected error:", error);
     } finally {
-      // Only set isSaving to false if we reach this point
-      // (we won't reach here if the success case returned early)
       setIsSaving(false);
     }
   };
@@ -255,27 +292,41 @@ const Strategies: React.FC = () => {
   };
 
   return (
-    <Box p={4}>
-      <Box mb={6} pb={4} borderBottomWidth="1px" borderColor={borderColor}>
-        <Breadcrumb separator={<Icon as={FiChevronRight} color="gray.500" />} fontSize="sm" color={secondaryTextColor} mb={4}>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Home</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem isCurrentPage>
-            <BreadcrumbLink href="/strategies">Strategies</BreadcrumbLink>
-          </BreadcrumbItem>
-        </Breadcrumb>
-        
-        <Heading size="lg" color={textColor}>Available Strategies</Heading>
-        <Text color={secondaryTextColor} mt={2}>
+    <Box p={5}>
+      <Breadcrumb mb={4} separator={<Icon as={FiChevronRight} color="gray.500" />}>
+        <BreadcrumbItem>
+          <BreadcrumbLink href="/">Home</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbItem isCurrentPage>
+          <BreadcrumbLink>Strategies</BreadcrumbLink>
+        </BreadcrumbItem>
+      </Breadcrumb>
+      
+      <Box mb={6}>
+        <Heading as="h1" size="xl" mb={2}>Available Strategies</Heading>
+        <Text color={secondaryTextColor}>
           Configure and manage your trading strategies. Click on a strategy to edit its parameters.
         </Text>
       </Box>
       
-      {strategies.length === 0 ? (
-        <Text>No strategies found.</Text>
+      {isLoading ? (
+        <Flex justify="center" align="center" p={10}>
+          <Spinner size="xl" color="blue.500" />
+          <Text ml={4} fontSize="lg">Loading strategies...</Text>
+        </Flex>
+      ) : strategies.length === 0 ? (
+        <Box p={5} borderWidth={1} borderRadius="md" borderColor={borderColor} bg={cardBg}>
+          <Text>No strategies found. The backend server may not be running properly.</Text>
+          <Button 
+            mt={4} 
+            colorScheme="blue" 
+            onClick={refreshStrategies}
+          >
+            Refresh Strategies
+          </Button>
+        </Box>
       ) : (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
           {strategies.map((strategy) => (
             <Box
               key={strategy.name}
@@ -340,124 +391,206 @@ const Strategies: React.FC = () => {
       {/* Strategy Edit Modal */}
       <Modal 
         isOpen={isOpen} 
-        onClose={handleModalClose} 
-        size="xl"
-        isCentered
-        closeOnOverlayClick={!isSaving}
-        closeOnEsc={!isSaving}
+        onClose={handleModalClose}
+        size="full"
+        motionPreset="slideInBottom"
       >
-        <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(5px)" />
-        <ModalContent bg={modalBg} borderRadius="xl" shadow="xl">
-          <ModalHeader borderBottomWidth="1px" borderColor={borderColor} py={4}>
-            <Flex align="center">
-              <Icon as={FiEdit} mr={2} color="blue.400" />
-              <Text>Edit Strategy: {selectedStrategy?.name}</Text>
+        <ModalOverlay bg="blackAlpha.600" backdropFilter="blur(1px)" />
+        <ModalContent
+          bg={modalBg}
+          maxW="1200px"
+          w="85%"
+          mx="auto"
+          my="50px"
+          borderRadius="2xl"
+          boxShadow="2xl"
+          overflow="hidden"
+        >
+          <ModalHeader 
+            borderBottomWidth="1px" 
+            borderColor={borderColor}
+            py={4}
+            px={6}
+            bg={headerBg}
+            borderTopRadius="2xl"
+          >
+            <Flex justify="space-between" align="center">
+              <HStack spacing={3}>
+                <Icon as={FiEdit} boxSize="20px" color="blue.500" />
+                <Text fontSize="lg" fontWeight="600">Edit Strategy: {selectedStrategy?.name}</Text>
+              </HStack>
+              {settings.activeStrategy === selectedStrategy?.name && (
+                <Badge colorScheme="green" fontSize="sm" px={3} py={1} borderRadius="full">
+                  Active Strategy
+                </Badge>
+              )}
             </Flex>
           </ModalHeader>
-          <ModalCloseButton mt={2} isDisabled={isSaving} />
-          <ModalBody p={6}>
-            {selectedStrategy && (
-              <VStack spacing={6} align="stretch">
-                <Box>
-                  <Text fontSize="md" fontWeight="medium" mb={1}>Description</Text>
-                  <Text color={secondaryTextColor}>{selectedStrategy.description}</Text>
-                </Box>
-                
-                <Divider />
-                
-                <Box>
-                  <Flex align="center" mb={4}>
-                    <Icon as={FiSliders} color="blue.400" mr={2} />
-                    <Heading size="sm">Strategy Parameters</Heading>
-                  </Flex>
-                  
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                    {Object.entries(selectedStrategy.parameters).map(([key, param]: [string, StrategyParameter]) => {
-                      const paramIcon = getParamIcon(key);
-                      return (
-                        <Card key={key} variant="outline" borderColor={borderColor} shadow="sm">
-                          <CardHeader bg={headerBg} py={3} px={4} borderBottomWidth="1px" borderColor={borderColor}>
-                            <Flex justify="space-between" align="center">
-                              <HStack>
-                                <Icon as={paramIcon} color="blue.400" />
-                                <Text fontWeight="medium" fontSize="sm">{key}</Text>
-                              </HStack>
-                              <Tag size="sm" bg={tagBg} color="blue.500" borderRadius="full" px={2}>
-                                {param.range.min} - {param.range.max}
-                              </Tag>
-                            </Flex>
-                          </CardHeader>
-                          <CardBody p={4}>
-                            <FormControl>
-                              <InputGroup size="md">
-                                <InputLeftElement pointerEvents="none">
-                                  <Icon as={paramIcon} color="gray.400" />
-                                </InputLeftElement>
-                                <NumberInput
-                                  value={editedParams[key] || param.default}
-                                  onChange={(valueString, value) => {
-                                    // Allow any value to be entered without validation
-                                    handleParamChange(key, value);
-                                  }}
-                                  // Remove min/max constraints
-                                  step={param.range.step || (param.type === 'int' ? 1 : 0.001)}
-                                  precision={param.type === 'int' ? 0 : 3}
-                                  size="md"
-                                  width="100%"
-                                  isDisabled={isSaving}
-                                  keepWithinRange={false}
-                                  clampValueOnBlur={false}
-                                >
-                                  <NumberInputField 
-                                    pl="2.5rem" 
-                                    bg={inputBg} 
-                                    borderColor={borderColor}
-                                    _hover={{ borderColor: "blue.300" }}
-                                    _focus={{ borderColor: "blue.400", boxShadow: "0 0 0 1px #4299E1" }}
-                                  />
-                                  <NumberInputStepper>
-                                    <NumberIncrementStepper />
-                                    <NumberDecrementStepper />
-                                  </NumberInputStepper>
-                                </NumberInput>
-                              </InputGroup>
-                              <Text fontSize="xs" mt={2} color={secondaryTextColor}>
-                                {param.description}
-                              </Text>
-                            </FormControl>
-                          </CardBody>
-                        </Card>
-                      );
-                    })}
-                  </SimpleGrid>
-                </Box>
-              </VStack>
-            )}
+          <ModalCloseButton size="lg" />
+          
+          <ModalBody py={8} px={6}>
+            <VStack spacing={8} align="stretch">
+              {/* Description Section */}
+              <Box 
+                bg={paramBg} 
+                p={4} 
+                borderRadius="lg" 
+                borderWidth="1px" 
+                borderColor={borderColor}
+              >
+                <HStack spacing={2} mb={2}>
+                  <Icon as={FiInfo} color="blue.500" />
+                  <Text fontWeight="600">Strategy Description</Text>
+                </HStack>
+                <Text fontSize="sm" color={secondaryTextColor}>
+                  {selectedStrategy?.description}
+                </Text>
+              </Box>
+
+              {/* Parameters Grid */}
+              <SimpleGrid 
+                columns={{ base: 1, md: 2, lg: 3, xl: 4 }} 
+                spacing={6}
+                px={2}
+              >
+                {selectedStrategy && Object.entries(selectedStrategy.parameters).map(([paramName, param]) => (
+                  <Box
+                    key={paramName}
+                    p={4}
+                    bg={paramBg}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={borderColor}
+                    transition="all 0.2s"
+                    position="relative"
+                    role="group"
+                    _hover={{
+                      transform: 'translateY(-2px)',
+                      boxShadow: 'lg',
+                      borderColor: 'blue.400',
+                      bg: useColorModeValue('white', 'gray.750'),
+                    }}
+                  >
+                    <FormControl size="md">
+                      <FormLabel mb={2}>
+                        <HStack spacing={2} wrap="nowrap">
+                          <Icon 
+                            as={getParamIcon(paramName)} 
+                            boxSize="16px" 
+                            color="blue.400"
+                            _groupHover={{ color: 'blue.500' }}
+                          />
+                          <Text 
+                            fontSize="sm" 
+                            fontWeight="600" 
+                            noOfLines={1}
+                            _groupHover={{ color: 'blue.500' }}
+                          >
+                            {paramName}
+                          </Text>
+                        </HStack>
+                      </FormLabel>
+                      
+                      <NumberInput
+                        value={editedParams[paramName]}
+                        onChange={(_, value) => handleParamChange(paramName, value)}
+                        min={param.min}
+                        max={param.max}
+                        step={0.001}
+                        precision={4}
+                        bg={inputBg}
+                        size="sm"
+                      >
+                        <NumberInputField 
+                          fontSize="sm"
+                          borderRadius="md"
+                          _hover={{ borderColor: 'blue.400' }}
+                          _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
+                        />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+
+                      <HStack mt={2} justify="space-between" align="center">
+                        <Tag 
+                          size="sm" 
+                          bg={tagBg} 
+                          color={useColorModeValue('blue.600', 'blue.200')}
+                          borderRadius="full" 
+                          px={2}
+                          fontSize="xs"
+                        >
+                          Range: {param.min} - {param.max}
+                        </Tag>
+                        <Tooltip 
+                          label={param.description}
+                          placement="top"
+                          hasArrow
+                          bg={useColorModeValue('gray.800', 'gray.700')}
+                          color="white"
+                          px={3}
+                          py={2}
+                          borderRadius="md"
+                          openDelay={200}
+                        >
+                          <Icon 
+                            as={FiInfo} 
+                            color="blue.400" 
+                            _groupHover={{ color: 'blue.500' }}
+                            cursor="help"
+                          />
+                        </Tooltip>
+                      </HStack>
+
+                      <Text 
+                        fontSize="xs" 
+                        color={secondaryTextColor} 
+                        mt={2} 
+                        noOfLines={2}
+                        opacity={0}
+                        transition="all 0.2s"
+                        _groupHover={{ opacity: 1 }}
+                      >
+                        {param.description}
+                      </Text>
+                    </FormControl>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </VStack>
           </ModalBody>
-          <ModalFooter borderTopWidth="1px" borderColor={borderColor} py={4}>
-            <Button 
-              variant="outline" 
-              mr={3} 
+
+          <ModalFooter 
+            borderTopWidth="1px" 
+            borderColor={borderColor}
+            bg={headerBg}
+            borderBottomRadius="2xl"
+            py={4}
+            px={6}
+          >
+            <Button
+              variant="ghost"
+              mr={4}
               onClick={handleModalClose}
               isDisabled={isSaving}
+              size="md"
+              px={6}
             >
               Cancel
             </Button>
-            <Button 
-              colorScheme="blue" 
-              leftIcon={isSaving ? <Spinner size="sm" /> : <Icon as={FiSave} />}
-              onClick={() => {
-                handleSaveParams();
-                // Force close after a short delay if still open
-                setTimeout(() => {
-                  forceCloseModal();
-                }, 500);
-              }}
-              px={6}
-              shadow="md"
-              _hover={{ transform: 'translateY(-1px)', shadow: 'lg' }}
+            <Button
+              colorScheme="blue"
+              onClick={handleSaveParams}
               isLoading={isSaving}
-              loadingText="Saving..."
+              leftIcon={<Icon as={FiSave} />}
+              size="md"
+              px={8}
+              _hover={{
+                transform: 'translateY(-1px)',
+                boxShadow: 'md',
+              }}
             >
               Save Parameters
             </Button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Flex,
@@ -28,7 +28,8 @@ import {
   FiChevronLeft, 
   FiChevronRight,
   FiGithub,
-  FiInfo
+  FiInfo,
+  FiList
 } from 'react-icons/fi';
 
 interface LayoutProps {
@@ -42,13 +43,38 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const sideNavBg = useColorModeValue('gray.50', 'gray.900');
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: FiHome },
     { name: 'Backtest', path: '/backtest', icon: FiBarChart2 },
     { name: 'Strategies', path: '/strategies', icon: FiTrendingUp },
+    { name: 'Orders', path: '/orders', icon: FiList },
     { name: 'Settings', path: '/settings', icon: FiSettings },
   ];
+
+  // Auto-close sidebar after 5 seconds when expanded
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Set a new timer if sidebar is expanded
+    if (isExpanded) {
+      timerRef.current = setTimeout(() => {
+        setIsExpanded(false);
+      }, 5000); // 5 seconds
+    }
+
+    // Cleanup function to clear timer when component unmounts or effect reruns
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [isExpanded]);
 
   const toggleSidebar = () => {
     setIsExpanded(!isExpanded);
@@ -120,6 +146,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           boxShadow="sm"
           zIndex="10"
           overflowX="hidden"
+          onMouseEnter={() => {
+            // Clear the auto-close timer when user hovers over sidebar
+            if (timerRef.current) {
+              clearTimeout(timerRef.current);
+              timerRef.current = null;
+            }
+          }}
+          onMouseLeave={() => {
+            // Restart the timer when mouse leaves if sidebar is expanded
+            if (isExpanded) {
+              if (timerRef.current) {
+                clearTimeout(timerRef.current);
+              }
+              timerRef.current = setTimeout(() => {
+                setIsExpanded(false);
+              }, 5000);
+            }
+          }}
         >
           <Flex 
             direction="column" 

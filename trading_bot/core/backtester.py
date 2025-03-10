@@ -70,7 +70,7 @@ class Backtester:
             'value': trade_value
         }
     
-    def run_backtest(self, data: pd.DataFrame) -> Dict[str, Any]:
+    def run_backtest(self, data: pd.DataFrame, timeframe: str = '1h') -> Dict[str, Any]:
         """Run backtest with the selected strategy"""
         try:
             # Prepare data
@@ -85,35 +85,83 @@ class Backtester:
             self.position = 0
             self.capital = self.initial_capital
             
+            # Variables to track open trades and their maximum potential profit/drawdown
+            open_trade = None
+            max_profit = 0
+            max_drawdown = 0
+            entry_price = 0
+            
             # Simulate trading
             for timestamp, row in df.iterrows():
+                current_price = row['close']
+                
+                # If we have an open position, calculate potential profit and drawdown
+                if self.position != 0 and open_trade:
+                    # Calculate unrealized profit/loss
+                    unrealized_pnl = 0
+                    
+                    if self.position > 0:  # Long position
+                        unrealized_pnl = (current_price - entry_price) * abs(self.position)
+                    else:  # Short position
+                        unrealized_pnl = (entry_price - current_price) * abs(self.position)
+                    
+                    # Update max profit (runup) - only track positive values
+                    if unrealized_pnl > 0 and unrealized_pnl > max_profit:
+                        max_profit = unrealized_pnl
+                    
+                    # Update max drawdown - track the worst negative excursion from entry
+                    if unrealized_pnl < 0 and abs(unrealized_pnl) > max_drawdown:
+                        max_drawdown = abs(unrealized_pnl)
+                
                 # Execute trade if signal exists
                 if row['signal'] != 0:
-                    trade = self.execute_trade(timestamp, row['close'], row['signal'])
+                    trade = self.execute_trade(timestamp, current_price, row['signal'])
                     if trade:
+                        # If closing a position, add runup and drawdown information
+                        if open_trade and ((self.position <= 0 and open_trade['type'] == 'BUY') or 
+                                          (self.position >= 0 and open_trade['type'] == 'SELL')):
+                            # Runup is always positive or zero (maximum unrealized profit)
+                            open_trade['runup'] = max_profit
+                            
+                            # Drawdown is always positive or zero (maximum unrealized loss)
+                            open_trade['drawdown'] = max_drawdown
+                            
+                            # Reset tracking variables
+                            max_profit = 0
+                            max_drawdown = 0
+                        
+                        # Record this as a new open trade
                         self.trades.append(trade)
+                        open_trade = trade
+                        entry_price = current_price
                 
                 # Track equity
-                current_equity = self.capital + (self.position * row['close'])
+                current_equity = self.capital + (self.position * current_price)
                 equity_curve.append({
                     'timestamp': timestamp,
                     'equity': current_equity
                 })
             
             # Calculate performance metrics
-            equity_df = pd.DataFrame(equity_curve)
-            metrics = calculate_advanced_metrics(equity_df, self.trades)
+            metrics = calculate_advanced_metrics(
+                df, 
+                self.trades, 
+                self.initial_capital, 
+                self.capital + (self.position * df['close'].iloc[-1])
+            )
+            
+            # Include timeframe in results
+            metrics['timeframe'] = timeframe
             
             return {
-                'equity_curve': equity_curve,
-                'trades': self.trades,
                 'metrics': metrics,
-                'final_capital': self.capital,
-                'strategy_params': self.strategy_params
+                'trades': self.trades,
+                'equity_curve': equity_curve,
+                'timeframe': timeframe  # Include timeframe at the top level too
             }
             
         except Exception as e:
-            logger.error(f"Error in backtest: {str(e)}")
+            logger.error(f"Backtest error: {str(e)}")
             raise
     
     @classmethod
@@ -122,6 +170,7 @@ class Backtester:
         symbol: str,
         strategy_name: str,
         data: pd.DataFrame,
+        timeframe: str = '1h',
         max_workers: Optional[int] = None
     ) -> Dict[str, Any]:
         """Optimize strategy parameters"""
@@ -144,7 +193,8 @@ class Backtester:
                 future_to_params = {
                     executor.submit(
                         cls(symbol, strategy_name, strategy_params=params).run_backtest,
-                        data
+                        data,
+                        timeframe
                     ): params
                     for params in param_combinations
                 }

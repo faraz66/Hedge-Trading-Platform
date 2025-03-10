@@ -1,0 +1,21 @@
+{
+  "api": {
+    "baseUrl": "https://api.hedgebot.com",
+    "timeout": 30000
+  },
+  "backtest": {
+    "defaultTimeframe": "1d",
+    "defaultPeriod": "1y",
+    "maxPeriod": "5y"
+  },
+  "trading": {
+    "defaultExchange": "binance",
+    "defaultPair": "BTC/USDT",
+    "paperTrading": false
+  },
+  "logging": {
+    "level": "info",
+    "console": false,
+    "file": true
+  }
+} 

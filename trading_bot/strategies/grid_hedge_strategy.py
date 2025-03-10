@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import logging
 from .base_hedge_strategy import BaseHedgeStrategy
+import os
 
 class GridLevel:
     def __init__(self, price: float, type: str, size: float, paired_level: Optional['GridLevel'] = None):
@@ -45,8 +46,10 @@ class GridHedgeStrategy(BaseHedgeStrategy):
         self.logger = self._setup_logger()
     
     def get_required_parameters(self) -> List[str]:
-        """Get list of required parameters."""
-        return ['grid_levels', 'grid_spacing', 'position_size']
+        """Get required strategy parameters."""
+        params = super().get_required_parameters()
+        params.extend(['grid_levels', 'grid_spacing', 'position_size', 'min_profit'])
+        return params
     
     def get_parameters(self) -> Dict[str, Any]:
         """Get default strategy parameters."""
@@ -100,8 +103,8 @@ class GridHedgeStrategy(BaseHedgeStrategy):
         
         # Calculate grid levels
         price = df['close'].iloc[-1]
-        grid_spacing = self._params['grid_spacing']
-        num_levels = self._params['grid_levels']
+        grid_spacing = self.parameters['grid_spacing']
+        num_levels = self.parameters['grid_levels']
         
         grid_levels = [
             price * (1 + grid_spacing * i)
@@ -123,17 +126,17 @@ class GridHedgeStrategy(BaseHedgeStrategy):
                 if current_price >= level and next_price < level:
                     df.loc[df.index[i+1], 'signal'] = 1
                     df.loc[df.index[i+1], 'grid_level'] = level_idx
-                    df.loc[df.index[i+1], 'position_size'] = self._params['position_size']
+                    df.loc[df.index[i+1], 'position_size'] = self.parameters['position_size']
                 
                 # Sell signal when price crosses grid level from below
                 elif current_price <= level and next_price > level:
                     df.loc[df.index[i+1], 'signal'] = -1
                     df.loc[df.index[i+1], 'grid_level'] = level_idx
-                    df.loc[df.index[i+1], 'position_size'] = self._params['position_size']
+                    df.loc[df.index[i+1], 'position_size'] = self.parameters['position_size']
         
         # Calculate profit targets for each grid level
         df['take_profit'] = df.apply(
-            lambda row: grid_levels[int(row['grid_level'])] * (1 + self._params['min_profit'])
+            lambda row: grid_levels[int(row['grid_level'])] * (1 + self.parameters['min_profit'])
             if row['signal'] != 0 else 0,
             axis=1
         )
@@ -153,7 +156,15 @@ class GridHedgeStrategy(BaseHedgeStrategy):
         logger.setLevel(logging.INFO)
         
         if not logger.handlers:
-            fh = logging.FileHandler(f'grid_hedge_{self.symbol}.log')
+            # Create logs directory if it doesn't exist
+            logs_dir = os.path.join(os.getcwd(), 'logs')
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            # Use a safe filename by replacing any special characters
+            safe_symbol = self.symbol.replace('/', '_').replace('\\', '_')
+            log_file = os.path.join(logs_dir, f'grid_hedge_{safe_symbol}.log')
+            
+            fh = logging.FileHandler(log_file)
             fh.setLevel(logging.INFO)
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             fh.setFormatter(formatter)
@@ -166,12 +177,12 @@ class GridHedgeStrategy(BaseHedgeStrategy):
         levels = []
         
         # Calculate price range
-        price_range = current_price * self._params['grid_spacing'] * self._params['grid_levels']
+        price_range = current_price * self.parameters['grid_spacing'] * self.parameters['grid_levels']
         min_price = current_price - (price_range / 2)
         
-        for i in range(self._params['grid_levels'] * 2):  # Create levels above and below current price
-            price = min_price + (i * current_price * self._params['grid_spacing'])
-            size = self._params['base_order_size'] * (1 + (i // 2) * (self._params['size_multiplier'] - 1))
+        for i in range(self.parameters['grid_levels'] * 2):  # Create levels above and below current price
+            price = min_price + (i * current_price * self.parameters['grid_spacing'])
+            size = self.parameters['base_order_size'] * (1 + (i // 2) * (self.parameters['size_multiplier'] - 1))
             
             # Create buy level
             if price < current_price:
@@ -279,9 +290,9 @@ class GridHedgeStrategy(BaseHedgeStrategy):
                 # Both levels filled, check for profit taking
                 profit = self._calculate_pair_profit(level, current_price)
                 
-                if profit >= self._params['min_profit']:
+                if profit >= self.parameters['min_profit']:
                     self._close_position_pair(level)
-                elif profit <= -self._params['max_loss_pct']:
+                elif profit <= -self.parameters['max_loss_pct']:
                     # Close losing position if paired trade is in profit
                     if self._is_paired_trade_profitable(level):
                         self._close_position_pair(level)
@@ -342,4 +353,14 @@ class GridHedgeStrategy(BaseHedgeStrategy):
             'support_levels': self.support_levels,
             'resistance_levels': self.resistance_levels,
             'trades_count': len(self.trades_history)
+        }
+
+    def calculate_position_sizes(self, price: float, balance: float) -> Dict[str, float]:
+        """Calculate position sizes based on available balance and hedge ratio."""
+        base_size = balance * self.parameters.get('position_size', 0.1)
+        hedge_size = base_size * self.parameters.get('hedge_ratio', 1.0)
+        
+        return {
+            'base_size': base_size,
+            'hedge_size': hedge_size
         } 
